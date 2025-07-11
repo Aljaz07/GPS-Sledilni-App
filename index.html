@@ -47,27 +47,37 @@
     <button onclick="startTracking()">Začni sledenje</button>
     <button onclick="stopTracking()">Ustavi</button>
     <button onclick="clearTrack()">Počisti</button>
+    <button onclick="exportPath()">Izvozi JSON</button>
+    <button onclick="exportGeoJSON()">Izvozi GeoJSON</button>
+    <button onclick="exportGPX()">Izvozi GPX</button>
     <div id="progress" class="progress">Napredek: 0%</div>
     <div id="point-count">Točk: 0</div>
+    <div id="country">Država: -</div>
   </div>
   <div id="map"></div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+  <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+
   <script>
     window.onload = function () {
-      let map = L.map("map").setView([46.0569, 14.5058], 8);
+      const map = L.map("map").setView([46.0569, 14.5058], 8);
+
       let path = [];
       let polyline = L.polyline(path, { color: "blue" }).addTo(map);
       let markers = L.markerClusterGroup();
       map.addLayer(markers);
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors'
+      }).addTo(map);
+
       let visitedGrids = new Set();
       let totalGrids = 10000;
       let watchId = null;
-
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a>'
-      }).addTo(map);
+      let countriesVisited = new Set();
+      let countryGrids = {};
 
       function getGridId(lat, lng) {
         const latId = Math.floor(lat * 20);
@@ -80,32 +90,51 @@
           { name: "Bencinski servis", lat: lat + 0.001, lng: lng + 0.001 },
           { name: "Trgovina", lat: lat - 0.001, lng: lng - 0.001 },
         ];
-
         pois.forEach(poi => {
           const marker = L.marker([poi.lat, poi.lng]).bindPopup(poi.name);
           markers.addLayer(marker);
         });
       }
 
-      function updatePath(lat, lng) {
+      async function getCountry(lat, lng) {
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+          const data = await res.json();
+          return data.address.country;
+        } catch (e) {
+          return "Neznano";
+        }
+      }
+
+      async function updatePath(lat, lng) {
         const point = [lat, lng];
         path.push(point);
         polyline.setLatLngs(path);
 
-        const marker = L.circleMarker(point, {
-          radius: 5,
-          color: "blue"
-        }).addTo(map);
+        const marker = L.circleMarker(point, { radius: 5, color: "blue" }).addTo(map);
         markers.addLayer(marker);
 
         const gridId = getGridId(lat, lng);
         visitedGrids.add(gridId);
 
         const percent = ((visitedGrids.size / totalGrids) * 100).toFixed(2);
-        document.getElementById("progress").innerText = `Napredek: ${percent}%`;
         document.getElementById("point-count").innerText = `Točk: ${path.length}`;
 
         findNearbyPOIs(lat, lng);
+
+        const country = await getCountry(lat, lng);
+        countriesVisited.add(country);
+        document.getElementById("country").innerText = `Država: ${country}`;
+
+        if (!countryGrids[country]) countryGrids[country] = new Set();
+        countryGrids[country].add(gridId);
+
+        let html = '';
+        for (const c of countriesVisited) {
+          const pct = ((countryGrids[c]?.size || 0) / totalGrids * 100).toFixed(2);
+          html += `${c}: ${pct}%<br>`;
+        }
+        document.getElementById("progress").innerHTML = `Napredek:<br>${html}`;
       }
 
       window.startTracking = function () {
@@ -137,8 +166,56 @@
         polyline.setLatLngs(path);
         markers.clearLayers();
         visitedGrids.clear();
+        countriesVisited.clear();
+        countryGrids = {};
         document.getElementById("progress").innerText = `Napredek: 0%`;
         document.getElementById("point-count").innerText = `Točk: 0`;
+        document.getElementById("country").innerText = `Država: -`;
+      };
+
+      window.exportPath = function () {
+        const blob = new Blob([
+          JSON.stringify({ path, countries: Array.from(countriesVisited) }, null, 2)
+        ], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'podatki-potovanja.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      };
+
+      window.exportGeoJSON = function () {
+        const geojson = {
+          type: "FeatureCollection",
+          features: path.map(p => ({
+            type: "Feature",
+            geometry: { type: "Point", coordinates: [p[1], p[0]] },
+            properties: {}
+          }))
+        };
+        const blob = new Blob([JSON.stringify(geojson, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'pot.geojson';
+        a.click();
+      };
+
+      window.exportGPX = function () {
+        let gpx = `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="World Explorer App" xmlns="http://www.topografix.com/GPX/1/1">\n<trk><name>Pot</name><trkseg>`;
+        path.forEach(p => {
+          gpx += `\n<trkpt lat="${p[0]}" lon="${p[1]}"></trkpt>`;
+        });
+        gpx += `\n</trkseg></trk></gpx>`;
+        const blob = new Blob([gpx], { type: "application/gpx+xml" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'pot.gpx';
+        a.click();
       };
     };
   </script>
