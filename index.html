@@ -21,101 +21,81 @@
   />
 
   <style>
-    /* Temni in svetli način */
-    body {
+    html, body {
+      height: 100%;
       margin: 0;
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-      background: var(--bg-color);
-      color: var(--text-color);
-      font-family: Arial, sans-serif;
-      transition: background 0.3s, color 0.3s;
+      background: #fff;
+      transition: background 0.3s ease;
     }
-
-    :root {
-      --bg-color: #fff;
-      --text-color: #000;
-      --control-bg: #fff;
-      --control-shadow: rgba(0,0,0,0.2);
-      --button-bg: linear-gradient(145deg, #e0e0e0, #bababa);
-      --button-shadow: 5px 5px 10px #a3a3a3, -5px -5px 10px #ffffff;
-    }
-
-    body.dark {
-      --bg-color: #121212;
-      --text-color: #eee;
-      --control-bg: #1e1e1e;
-      --control-shadow: rgba(0,0,0,0.7);
-      --button-bg: linear-gradient(145deg, #2a2a2a, #1a1a1a);
-      --button-shadow: 5px 5px 10px #171717, -5px -5px 10px #3a3a3a;
-    }
-
     #map {
-      flex-grow: 1;
+      height: 100vh;
       width: 100%;
-      /* višina prilagojena flexu */
     }
-
     .controls {
-      position: relative;
-      padding: 10px;
-      background: var(--control-bg);
-      box-shadow: 0 2px 6px var(--control-shadow);
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 1000;
+      background: white;
+      padding: 12px;
+      border-radius: 12px;
+      box-shadow: 0 6px 12px rgba(0,0,0,0.2);
       display: flex;
       flex-wrap: wrap;
-      gap: 10px;
-      align-items: center;
-      z-index: 1000;
+      gap: 8px;
+      max-width: 350px;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
     }
-
-    .controls button {
-      cursor: pointer;
-      padding: 10px 15px;
+    button {
+      background: linear-gradient(145deg, #e0e0e0, #bababa);
       border: none;
-      border-radius: 12px;
-      background: var(--button-bg);
-      box-shadow: var(--button-shadow);
-      color: var(--text-color);
-      font-weight: 600;
-      transition: all 0.2s ease;
-      user-select: none;
-      outline-offset: 2px;
-    }
-
-    .controls button:hover {
-      filter: brightness(1.1);
-      box-shadow: inset 2px 2px 5px #a9a9a9,
-                  inset -2px -2px 5px #ffffff;
-    }
-
-    .controls button:active {
-      transform: translateY(2px);
-      box-shadow: inset 1px 1px 3px #00000066;
-    }
-
-    .progress, #point-count, #country {
-      flex-grow: 1;
+      border-radius: 10px;
+      padding: 10px 16px;
       font-size: 14px;
+      font-weight: 600;
+      color: #333;
+      cursor: pointer;
+      box-shadow: 5px 5px 8px #a3a3a3,
+                  -5px -5px 8px #ffffff;
+      transition: all 0.3s ease;
+      flex: 1 1 45%;
+      min-width: 120px;
+      text-align: center;
       user-select: none;
     }
-
-    /* Gumb za temni način na desni */
-    #darkModeToggle {
-      margin-left: auto;
-      background: #444;
-      color: #eee;
-      font-weight: bold;
+    button:hover {
+      box-shadow: inset 5px 5px 8px #a3a3a3,
+                  inset -5px -5px 8px #ffffff;
+      color: #000;
+    }
+    .progress, #point-count, #country {
+      width: 100%;
+      margin-top: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #555;
     }
 
-    /* Icon avatar style */
-    .avatar-icon {
-      border-radius: 50%;
-      border: 3px solid #337ab7;
-      background: url('https://cdn-icons-png.flaticon.com/512/194/194938.png') no-repeat center/cover;
-      width: 40px;
-      height: 40px;
-      box-shadow: 0 0 8px rgba(51,122,183,0.7);
+    /* Temni način */
+    body.dark-mode {
+      background: #121212;
+      color: #eee;
+    }
+    body.dark-mode .controls {
+      background: #222;
+      box-shadow: 0 6px 12px rgba(0,0,0,0.8);
+      color: #eee;
+    }
+    body.dark-mode button {
+      background: linear-gradient(145deg, #2c2c2c, #1a1a1a);
+      color: #ccc;
+      box-shadow: 5px 5px 8px #0f0f0f,
+                  -5px -5px 8px #3a3a3a;
+    }
+    body.dark-mode button:hover {
+      box-shadow: inset 5px 5px 8px #0f0f0f,
+                  inset -5px -5px 8px #3a3a3a;
+      color: #fff;
     }
   </style>
 </head>
@@ -127,36 +107,37 @@
     <button onclick="exportPath()">Izvozi JSON</button>
     <button onclick="exportGeoJSON()">Izvozi GeoJSON</button>
     <button onclick="exportGPX()">Izvozi GPX</button>
-    <button onclick="centerOnUser()">Pojdi na mojo lokacijo</button>
-    <button id="darkModeToggle">Temni način</button>
-
+    <button onclick="returnToCurrentLocation()">Moja lokacija</button>
+    <button onclick="toggleDarkMode()">Preklopi temni način</button>
     <div id="progress" class="progress">Napredek: 0%</div>
     <div id="point-count">Točk: 0</div>
     <div id="country">Država: -</div>
   </div>
   <div id="map"></div>
 
+  <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
   <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
 
   <script>
     document.addEventListener("DOMContentLoaded", function () {
-      const map = L.map("map", { maxZoom: 18 }).setView([46.0569, 14.5058], 8);
-
-      // TileLayer (svetla privzeta)
-      const lightTiles = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      // Zacetni sloji (svetli in temni)
+      const lightModeLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: '&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors'
       });
 
-      // Temni tileLayer (CartoDB Dark Matter)
-      const darkTiles = L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-        attribution: '&copy; <a href="https://carto.com/">CARTO</a>'
+      const darkModeLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       });
 
-      // Začnemo s svetlim načinom
-      let isDarkMode = false;
-      lightTiles.addTo(map);
+      // Inicializacija zemljevida s maxZoom
+      const map = L.map("map", {
+        center: [46.0569, 14.5058],
+        zoom: 8,
+        maxZoom: 18,
+        layers: [lightModeLayer],
+      });
 
       let path = [];
       let polyline = L.polyline(path, { color: "blue" }).addTo(map);
@@ -169,13 +150,13 @@
       let countriesVisited = new Set();
       let countryGrids = {};
 
-      // Avatar marker - posebna ikona
-      const avatarIcon = L.divIcon({
-        className: 'avatar-icon',
+      // Avatar marker (ikona)
+      const avatarIcon = L.icon({
+        iconUrl: 'https://cdn-icons-png.flaticon.com/512/147/147144.png', // primer avatar ikone
         iconSize: [40, 40],
-        iconAnchor: [20, 40]
+        iconAnchor: [20, 40], // da se "stoji" na lokaciji
       });
-      let avatarMarker = null;
+      let avatarMarker = L.marker([46.0569, 14.5058], { icon: avatarIcon }).addTo(map);
 
       function getGridId(lat, lng) {
         const latId = Math.floor(lat * 20);
@@ -196,9 +177,14 @@
 
       async function getCountry(lat, lng) {
         try {
-          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`, {
+            headers: {
+              'User-Agent': 'WorldExplorerApp/1.0 (https://aljaz07.github.io)',
+              'Referer': 'https://aljaz07.github.io'
+            }
+          });
           const data = await res.json();
-          return data.address.country;
+          return data.address?.country || "Neznano";
         } catch (e) {
           return "Neznano";
         }
@@ -209,16 +195,9 @@
         path.push(point);
         polyline.setLatLngs(path);
 
-        // Dodaj običajni marker
+        // Dodaj tudi marker na poti (majhen krog)
         const marker = L.circleMarker(point, { radius: 5, color: "blue" });
         markers.addLayer(marker);
-
-        // Posodobi avatar marker (premakni ga)
-        if (!avatarMarker) {
-          avatarMarker = L.marker(point, { icon: avatarIcon }).addTo(map);
-        } else {
-          avatarMarker.setLatLng(point);
-        }
 
         const gridId = getGridId(lat, lng);
         visitedGrids.add(gridId);
@@ -249,6 +228,9 @@
           watchId = navigator.geolocation.watchPosition(
             (pos) => {
               const { latitude, longitude } = pos.coords;
+              // Posodobi avatarja
+              avatarMarker.setLatLng([latitude, longitude]);
+              // Premakni pogled
               map.setView([latitude, longitude], map.getZoom());
               updatePath(latitude, longitude);
             },
@@ -256,4 +238,105 @@
             { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
           );
         } else {
-          alert("Geolokacija ni podprta v
+          alert("Geolokacija ni podprta v tem brskalniku.");
+        }
+      };
+
+      window.stopTracking = function () {
+        if (watchId !== null) {
+          navigator.geolocation.clearWatch(watchId);
+          watchId = null;
+        }
+      };
+
+      window.clearTrack = function () {
+        window.stopTracking();
+        path = [];
+        polyline.setLatLngs(path);
+        markers.clearLayers();
+        visitedGrids.clear();
+        countriesVisited.clear();
+        countryGrids = {};
+        document.getElementById("progress").innerText = `Napredek: 0%`;
+        document.getElementById("point-count").innerText = `Točk: 0`;
+        document.getElementById("country").innerText = `Država: -`;
+      };
+
+      window.exportPath = function () {
+        const blob = new Blob([
+          JSON.stringify({ path, countries: Array.from(countriesVisited) }, null, 2)
+        ], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'podatki-potovanja.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      };
+
+      window.exportGeoJSON = function () {
+        const geojson = {
+          type: "FeatureCollection",
+          features: path.map(p => ({
+            type: "Feature",
+            geometry: { type: "Point", coordinates: [p[1], p[0]] },
+            properties: {}
+          }))
+        };
+        const blob = new Blob([JSON.stringify(geojson, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'pot.geojson';
+        a.click();
+      };
+
+      window.exportGPX = function () {
+        let gpx = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+        gpx += `<gpx version="1.1" creator="GPS Sledilna Aplikacija">\n<trk><name>Pot</name><trkseg>\n`;
+        path.forEach(([lat, lng]) => {
+          gpx += `<trkpt lat="${lat}" lon="${lng}"></trkpt>\n`;
+        });
+        gpx += `</trkseg></trk></gpx>`;
+        const blob = new Blob([gpx], { type: "application/gpx+xml" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'pot.gpx';
+        a.click();
+      };
+
+      window.returnToCurrentLocation = function () {
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              const { latitude, longitude } = pos.coords;
+              map.setView([latitude, longitude], 16);
+              avatarMarker.setLatLng([latitude, longitude]);
+            },
+            (err) => alert("Napaka pri pridobivanju lokacije: " + err.message)
+          );
+        } else {
+          alert("Geolokacija ni podprta v tem brskalniku.");
+        }
+      };
+
+      let isDarkMode = false;
+      window.toggleDarkMode = function () {
+        if (isDarkMode) {
+          map.removeLayer(darkModeLayer);
+          lightModeLayer.addTo(map);
+          document.body.classList.remove("dark-mode");
+        } else {
+          map.removeLayer(lightModeLayer);
+          darkModeLayer.addTo(map);
+          document.body.classList.add("dark-mode");
+        }
+        isDarkMode = !isDarkMode;
+      };
+    });
+  </script>
+</body>
+</html>
