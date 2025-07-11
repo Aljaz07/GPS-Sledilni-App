@@ -236,32 +236,53 @@
     }
 
     /* Control panel with stats bottom left */
-    #stats-panel {
-  position: absolute;  /* postavi ga na fiksno mesto na zemljevidu */
-  top: 80px;           /* prilagodi glede na ostale elemente */
+  #stats-panel {
+  position: fixed;
+  bottom: 15px;
   right: 15px;
-  max-width: 300px;
-  background-color: rgba(0, 0, 0, 0.4);  /* prozorno črno ozadje */
-  color: white;
+  background: var(--panel-bg, rgba(0,0,0,0.4));
   padding: 15px 20px;
-  border-radius: 12px;
+  border-radius: 25px;
+  width: 280px;
   font-size: 0.9rem;
-  box-shadow: 0 0 15px rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(6px);  /* zamegli ozadje pod panelom */
-  z-index: 900;   /* da je nad zemljevidom */
+  line-height: 1.3;
+  color: var(--fg, white);
+  box-shadow: 2px 2px 8px rgba(0,0,0,0.7);
+  backdrop-filter: blur(6px);
   user-select: none;
+  z-index: 100;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
-#stats-panel > div {
+/* Spodnji levi gumbi */
+#bottom-left-buttons {
+  position: fixed;
+  bottom: 15px;
+  left: 15px;
   display: flex;
-  justify-content: space-between;
-  margin-bottom: 6px;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 8px 12px;
+  border-radius: 20px;
+  z-index: 110;
 }
 
-#stats-panel > div span:first-child {
+#bottom-left-buttons button {
+  font-size: 0.85rem;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  background-color: #007bff;
+  color: white;
   font-weight: 600;
+  transition: background-color 0.3s ease;
 }
 
+#bottom-left-buttons button:hover {
+  background-color: #0056b3;
+}
     /* Start/Stop ride buttons container */
     #controls {
       display: flex;
