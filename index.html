@@ -447,17 +447,18 @@
   </div>
 
   <!-- GLAVNA APLIKACIJA -->
-  <div id="main">
-    <div id="auth-tabs" role="tablist" aria-label="Uporabniški ukazi">
-      <button id="tab-logout" role="tab" aria-selected="false" tabindex="-1" data-tooltip="Odjava iz aplikacije 🔓">🚪 Odjava</button>
-      <button id="theme-toggle" data-tooltip="Preklopi svetlo/temno temo 🌓">🌓 Tema</button>
-    </div>
+  <div id="top-bar" role="toolbar" aria-label="Glavni nadzorni elementi" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 20px;">
+  <div style="display: flex; align-items: center; gap: 15px;">
+    <div id="avatar" tabindex="0" role="button" aria-label="Naloži ali spremeni profilno sliko" data-tooltip="Profilna slika 👤" style="background-image: url('https://i.pravatar.cc/44?u=default'); width:44px; height:44px; border-radius: 50%; background-size: cover; cursor: pointer;"></div>
+    <div id="history-btn" tabindex="0" role="button" aria-label="Ogled zgodovine voženj" data-tooltip="Zgodovina voženj 📜" style="font-size: 1.5rem; cursor: pointer;">📚</div>
+  </div>
 
-    <div id="top-bar" role="toolbar" aria-label="Glavni nadzorni elementi">
-      <div id="history-btn" tabindex="0" role="button" aria-label="Ogled zgodovine voženj" data-tooltip="Zgodovina voženj 📜">📚</div>
-      <div id="avatar" tabindex="0" role="button" aria-label="Naloži ali spremeni profilno sliko" data-tooltip="Profilna slika 👤" style="background-image: url('https://i.pravatar.cc/44?u=default');"></div>
-      <input type="file" id="avatar-input" accept="image/*" aria-label="Naloži novo profilno sliko" />
-    </div>
+  <div id="auth-tabs" role="tablist" aria-label="Uporabniški ukazi" style="display: flex; gap: 10px;">
+    <button id="tab-logout" role="tab" aria-selected="false" tabindex="-1" data-tooltip="Odjava iz aplikacije 🔓" style="padding: 8px 12px; cursor: pointer;">🚪 Odjava</button>
+    <button id="theme-toggle" data-tooltip="Preklopi svetlo/temno temo 🌓" style="padding: 8px 12px; cursor: pointer;">🌓 Tema</button>
+  </div>
+</div>
+<input type="file" id="avatar-input" accept="image/*" aria-label="Naloži novo profilno sliko" style="display:none;" />
 
     <div id="map" role="region" aria-label="Zemljevid GPS sledenja"></div>
 
