@@ -4,755 +4,609 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>GPS Sledenje</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
-    /* --- Osnovni reset in body --- */
-    body {
-      margin: 0;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: #121217;
+    html, body {
+      margin: 0; padding: 0; height: 100%; width: 100%;
+      font-family: Arial, sans-serif;
+      background: #111;
       color: white;
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-      overflow: hidden;
     }
-    a {
-      color: #66ccff;
-      text-decoration: none;
+    body.dark-mode {
+      background: #222;
+      color: white;
     }
 
-    /* --- Kontejner za login/registracijo --- */
+    /* Prijavni zaslon - fullscreen ozadje */
     #login-container {
-      width: 350px;
-      margin: 20px auto;
-      padding: 20px;
-      border-radius: 15px;
-      background-image: url('https://images.unsplash.com/photo-1506744038136-46273834b3fb?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80');
-      background-size: cover;
-      background-position: center;
-      box-shadow:
-        8px 8px 16px #0a0a22,
-        -8px -8px 16px #22227a;
-      backdrop-filter: brightness(0.6);
-    }
-
-    /* --- Zavihki --- */
-    .tabs {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: url('https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1470&q=80') no-repeat center center/cover;
       display: flex;
-      background: linear-gradient(145deg, #0f0f2f, #1a1a5a);
+      justify-content: center;
+      align-items: center;
+      z-index: 10;
+      padding: 20px;
+    }
+    #login-box {
+      background: rgba(0, 0, 0, 0.6);
+      padding: 30px 40px;
       border-radius: 12px;
-      box-shadow: 6px 6px 12px #0a0a22, -6px -6px 12px #22227a;
-      overflow: hidden;
-      margin-bottom: 10px;
-    }
-    .tab {
-      flex: 1;
-      padding: 12px;
-      cursor: pointer;
-      background: linear-gradient(145deg, #1a1a5a, #0f0f2f);
+      box-shadow: 0 0 20px rgba(0,0,0,0.8);
+      width: 100%;
+      max-width: 400px;
       color: white;
-      font-weight: bold;
-      border: none;
-      outline: none;
-      transition: background 0.3s ease;
+      box-sizing: border-box;
+    }
+    #login-box h2 {
+      margin-top: 0;
+      margin-bottom: 20px;
+      font-weight: 700;
       text-align: center;
-      user-select: none;
-    }
-    .tab.active {
-      background: linear-gradient(145deg, #3a3a8a, #1f1f6f);
-      box-shadow: inset 4px 4px 8px #22226f, inset -4px -4px 8px #5050b0;
-    }
-    .tab:hover:not(.active) {
-      background: linear-gradient(145deg, #15154d, #0d0d29);
     }
 
-    .tab-content {
-      display: none;
-      color: white;
-    }
-    .tab-content.active {
-      display: block;
-    }
-
-    /* --- Forme --- */
+    /* Obrazci */
     form {
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 15px;
     }
-    input[type="text"],
-    input[type="password"] {
+    input[type=text], input[type=password] {
       padding: 10px;
-      border-radius: 8px;
+      font-size: 1rem;
+      border-radius: 6px;
       border: none;
       outline: none;
-      font-size: 1em;
+      box-sizing: border-box;
+    }
+    input[type=text]:focus, input[type=password]:focus {
+      box-shadow: 0 0 8px #00aaff;
     }
     button {
       padding: 12px;
-      border-radius: 10px;
+      font-size: 1.1rem;
+      background-color: #00aaff;
       border: none;
-      font-weight: bold;
-      cursor: pointer;
-      background: linear-gradient(145deg, #1a1a5a, #0f0f2f);
-      color: white;
-      box-shadow: 4px 4px 8px #000044, -4px -4px 8px #222266;
-      transition: background 0.3s ease;
-      user-select: none;
-    }
-    button:hover:not(:disabled) {
-      background: linear-gradient(145deg, #30308a, #20206f);
-    }
-    button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    /* --- Tooltip --- */
-    button[title] {
-      position: relative;
-    }
-    button[title]:hover::after {
-      content: attr(title);
-      position: absolute;
-      bottom: 125%;
-      left: 50%;
-      transform: translateX(-50%);
-      background: #222266cc;
-      padding: 5px 10px;
       border-radius: 6px;
-      font-size: 0.85em;
-      white-space: nowrap;
-      pointer-events: none;
-      opacity: 1;
-      transition: opacity 0.3s ease;
-      z-index: 10;
-    }
-
-    /* --- Glavni del strani (zemljevid + UI) --- */
-    #main {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      position: relative;
-      background: #121217;
-      overflow: hidden;
-    }
-
-    /* --- Zemljevid --- */
-    #map {
-      flex: 1;
-    }
-
-    /* --- Temni način --- */
-    body.dark-mode {
-      background: #0b0b14;
-      color: #ddd;
-    }
-    body.dark-mode #login-container {
-      filter: brightness(0.7);
-    }
-
-    /* --- Gumb za temo --- */
-    #toggle-theme {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      z-index: 1100;
-      background: linear-gradient(145deg, #222244, #111122);
-      border-radius: 50%;
-      width: 40px;
-      height: 40px;
       color: white;
-      font-size: 1.4em;
-      display: flex;
-      align-items: center;
-      justify-content: center;
       cursor: pointer;
-      box-shadow: 3px 3px 7px #000000aa;
-      user-select: none;
-      border: none;
+      transition: background-color 0.3s;
     }
-    #toggle-theme:hover {
-      background: linear-gradient(145deg, #444488, #222266);
+    button:hover {
+      background-color: #0077cc;
     }
 
-    /* --- Panel z osnovno statistiko (spodnji levi kot) --- */
+    /* Prilagoditve za manjše zaslone */
+    @media (max-width: 480px) {
+      #login-box {
+        padding: 25px 20px;
+        max-width: 100%;
+      }
+      button {
+        font-size: 1rem;
+        padding: 10px;
+      }
+    }
+
+    /* Glavni del po prijavi */
+    #main {
+      display: none;
+      height: 100vh;
+      width: 100vw;
+      flex-direction: column;
+    }
+
+    #map {
+      flex-grow: 1;
+    }
+
+    /* Statistika na spodnjem levem kotu */
     #stats-panel {
-      position: absolute;
+      position: fixed;
       bottom: 20px;
       left: 20px;
-      background: linear-gradient(145deg, #1a1a5a, #0f0f2f);
-      padding: 12px 18px;
-      border-radius: 15px;
-      box-shadow: 6px 6px 12px #0a0a22, -6px -6px 12px #22227a;
-      font-size: 0.9em;
-      width: 210px;
+      background: rgba(0,0,0,0.7);
+      border-radius: 12px;
+      padding: 15px;
+      color: #00aaff;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9rem;
+      box-shadow: 0 0 10px #00aaff;
       user-select: none;
-      color: #aaddff;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 260px;
+      z-index: 1000;
     }
 
-    /* --- Panel z lokacijo --- */
-    #location-panel {
-      position: absolute;
-      bottom: 20px;
-      right: 20px;
-      background: linear-gradient(145deg, #1a1a5a, #0f0f2f);
-      padding: 14px 20px;
-      border-radius: 15px;
-      box-shadow: 6px 6px 12px #0a0a22, -6px -6px 12px #22227a;
-      width: 270px;
-      font-size: 0.9em;
-      color: #aaddff;
-      user-select: none;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    }
-
-    /* --- Avatar --- */
+    /* Avatar styling */
     #avatar {
-      position: absolute;
-      top: 10px;
-      left: 10px;
       width: 48px;
       height: 48px;
       border-radius: 50%;
-      border: 2px solid #66ccff;
-      cursor: pointer;
       background-size: cover;
       background-position: center;
-      box-shadow: 0 0 8px #66ccff;
-      user-select: none;
-    }
-    #avatar:hover {
-      box-shadow: 0 0 12px #99ddff;
+      cursor: pointer;
+      border: 2px solid #00aaff;
+      margin-left: 15px;
     }
 
-    /* --- Modal zgodovine voženj --- */
+    /* Tooltip */
+    [data-tooltip] {
+      position: relative;
+      cursor: pointer;
+    }
+    [data-tooltip]:hover::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #00aaff;
+      color: black;
+      padding: 5px 8px;
+      border-radius: 6px;
+      white-space: nowrap;
+      font-size: 0.75rem;
+      pointer-events: none;
+      opacity: 0.9;
+      margin-bottom: 5px;
+      z-index: 9999;
+    }
+
+    /* Modal zgodovine voženj */
     #ride-history-modal {
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.85);
       display: none;
+      position: fixed;
+      top:0; left:0; right:0; bottom:0;
+      background: rgba(0,0,0,0.8);
+      color: white;
       justify-content: center;
       align-items: center;
-      z-index: 1200;
-      padding: 10px;
+      z-index: 2000;
     }
-    #ride-history-modal.active {
-      display: flex;
-    }
-    #ride-history-content {
-      background: #121217;
+    #ride-history-modal > div {
+      background: #111;
       padding: 20px;
-      border-radius: 15px;
-      max-width: 800px;
+      border-radius: 12px;
+      max-width: 400px;
+      width: 90%;
       max-height: 80vh;
       overflow-y: auto;
-      box-shadow: 0 0 15px #66ccffaa;
-      color: #aaddff;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
-    #ride-history-close {
-      cursor: pointer;
-      color: #66ccff;
-      font-size: 1.2em;
-      font-weight: bold;
-      float: right;
-      user-select: none;
+    #ride-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
     }
-    .ride-entry {
-      margin-bottom: 16px;
-      padding-bottom: 10px;
-      border-bottom: 1px solid #445577;
-    }
-    .ride-entry h4 {
-      margin: 0 0 4px 0;
-      font-weight: bold;
-      color: #99ccff;
-    }
-    .ride-stats {
-      font-size: 0.85em;
-      color: #aaccee;
-    }
-    .ride-map {
-      height: 120px;
-      margin-top: 6px;
+    #ride-list li {
+      margin-bottom: 12px;
+      padding: 8px;
+      background: #222;
       border-radius: 8px;
-      border: 1px solid #335577;
+      cursor: pointer;
+      transition: background-color 0.3s;
     }
-
-    /* --- Gumbi z emoji in tooltip --- */
-    button#startBtn::before {
-      content: "▶️ ";
+    #ride-list li:hover {
+      background: #00aaff;
+      color: black;
     }
-    button#stopBtn::before {
-      content: "⏹️ ";
+    #close-modal {
+      cursor: pointer;
+      color: #00aaff;
+      font-weight: bold;
+      text-align: right;
+      margin-bottom: 10px;
     }
-    button#toggle-theme::before {
-      content: "🌙 ";
-    }
-
   </style>
-
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    crossorigin=""
-  />
 </head>
 <body>
+
+  <!-- PRIJAVA - fullscreen ozadje -->
   <div id="login-container">
-    <div class="tabs">
-      <button id="tab-login" class="tab active" title="Prijavite se v sistem">Prijava</button>
-      <button id="tab-register" class="tab" title="Ustvarite nov račun">Registracija</button>
-    </div>
-    <div id="login-section" class="tab-content active">
+    <div id="login-box">
+      <h2>Prijava</h2>
       <form id="login-form">
-        <input type="text" id="login-username" placeholder="Uporabniško ime" required />
-        <input type="password" id="login-password" placeholder="Geslo" required />
-        <button type="submit" title="Prijava">Prijava</button>
+        <input type="text" id="login-username" placeholder="Uporabniško ime" required autocomplete="username" />
+        <input type="password" id="login-password" placeholder="Geslo" required autocomplete="current-password" />
+        <button type="submit" data-tooltip="Prijavite se v aplikacijo">🔑 Prijava</button>
       </form>
-    </div>
-    <div id="register-section" class="tab-content">
-      <form id="register-form">
-        <input type="text" id="register-username" placeholder="Izberi uporabniško ime" required />
-        <input type="password" id="register-password" placeholder="Izberi geslo" required />
-        <button type="submit" title="Registracija">Registracija</button>
-      </form>
+      <hr style="margin: 20px 0; border-color: #00aaff;">
+      <p style="text-align:center; margin:0 0 10px 0;">Nimate računa?</p>
+      <button id="show-register" data-tooltip="Registrirajte novega uporabnika" style="width: 100%;">📝 Registracija</button>
     </div>
   </div>
 
-  <div id="main" style="display:none;">
-    <div id="avatar" title="Klikni za ogled zgodovine voženj"></div>
-    <button id="toggle-theme" title="Preklopi temni način"></button>
-    <div id="map"></div>
+  <!-- REGISTRACIJA MODAL -->
+  <div id="register-modal" style="display:none; position:fixed; top:0;left:0;right:0;bottom:0; background: rgba(0,0,0,0.85); z-index:15; display:flex; justify-content:center; align-items:center;">
+    <div style="background: rgba(0,0,0,0.8); padding: 30px 40px; border-radius: 12px; max-width: 400px; width: 90%; box-sizing:border-box; color: white;">
+      <h2>Registracija</h2>
+      <form id="register-form">
+        <input type="text" id="register-username" placeholder="Uporabniško ime" required autocomplete="username" />
+        <input type="password" id="register-password" placeholder="Geslo" required autocomplete="new-password" />
+        <button type="submit" data-tooltip="Ustvarite nov račun">✅ Registriraj</button>
+      </form>
+      <button id="close-register" style="margin-top: 15px; width: 100%; background: #cc0000;" data-tooltip="Zapri registracijo">✖ Zapri</button>
+    </div>
+  </div>
 
+  <!-- GLAVNI UI -->
+  <div id="main">
+    <div style="display:flex; align-items:center; padding: 10px; background:#000; box-shadow: 0 2px 10px rgba(0,0,0,0.8);">
+      <button id="toggle-theme" data-tooltip="Preklop teme 🌙" style="background:#00aaff; border:none; border-radius:6px; color:#000; font-weight:bold; padding:8px 12px; cursor:pointer;">🌙 Tema</button>
+      <div id="avatar" data-tooltip="Vaš profil (klik za zgodovino)"></div>
+      <input type="file" id="avatar-input" accept="image/*" style="display:none;" />
+    </div>
+    <div id="map" style="height: calc(100vh - 50px);"></div>
+
+    <!-- Statistika v spodnjem levem kotu -->
     <div id="stats-panel">
       <div>⏱ Čas: <span id="stat-time">0s</span></div>
       <div>📏 Razdalja: <span id="stat-distance">0 m</span></div>
-      <div>🚀 Povprečna hitrost: <span id="stat-avgSpeed">0 km/h</span></div>
+      <div>🚀 Povp. hitrost: <span id="stat-avgSpeed">0 km/h</span></div>
       <div>⚡ Trenutna hitrost: <span id="stat-speed">0 km/h</span></div>
       <div>⛰ Višina: <span id="stat-altitude">-</span></div>
+      <div>🌍 Država: <span id="country">-</span></div>
+      <div>📍 Lokacija: <span id="location">-</span></div>
+      <div>🔋 Napredek: <span id="progress">0%</span></div>
     </div>
 
-    <div id="location-panel">
-      <div><strong>Država:</strong> <span id="country">-</span></div>
-      <div><strong>Naslov:</strong> <span id="location">-</span></div>
-      <div><strong>Raziskano:</strong> <span id="progress">0%</span></div>
-    </div>
-
-    <div style="position:absolute; bottom:90px; left:20px;">
-      <button id="startBtn" title="Začni sledenje">Začni</button>
-      <button id="stopBtn" title="Ustavi sledenje" disabled>Ustavi</button>
+    <!-- Gumbi za začetek in konec vožnje -->
+    <div style="position: fixed; bottom: 20px; right: 20px; display: flex; gap: 15px; z-index: 1100;">
+      <button id="start-ride" data-tooltip="Začni vožnjo 🚴" style="background:#00aa00; border:none; border-radius: 8px; padding: 14px 18px; font-weight:bold; color:white; cursor:pointer;">🚴 Začni</button>
+      <button id="stop-ride" data-tooltip="Ustavi vožnjo ✋" style="background:#cc0000; border:none; border-radius: 8px; padding: 14px 18px; font-weight:bold; color:white; cursor:pointer;" disabled>✋ Ustavi</button>
     </div>
   </div>
 
   <!-- Modal za zgodovino voženj -->
   <div id="ride-history-modal">
-    <div id="ride-history-content">
-      <div id="ride-history-close" title="Zapri">✖</div>
-      <h2>Zgodovina voženj</h2>
-      <div id="ride-list"></div>
+    <div>
+      <div id="close-modal">✖ Zapri</div>
+      <h3>Zgodovina voženj</h3>
+      <ul id="ride-list"></ul>
     </div>
   </div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
-    // --- Zavihki za login/registracijo ---
-    const tabLogin = document.getElementById('tab-login');
-    const tabRegister = document.getElementById('tab-register');
-    const loginSection = document.getElementById('login-section');
-    const registerSection = document.getElementById('register-section');
+    // ---------- GLOBAL VARIABLES ----------
+    let map, pathLine, markerGroup;
+    let watchId;
+    let rideStarted = false;
+    let ridePath = [];
+    let rideStartTime;
+    let rideDistance = 0;
+    let lastPosition = null;
 
-    tabLogin.addEventListener('click', () => {
-      tabLogin.classList.add('active');
-      tabRegister.classList.remove('active');
-      loginSection.classList.add('active');
-      registerSection.classList.remove('active');
-    });
+    // Uporabnik (lokalno shranjeno)
+    let user = {
+      username: null,
+      avatar: null,
+      rides: []
+    };
 
-    tabRegister.addEventListener('click', () => {
-      tabRegister.classList.add('active');
-      tabLogin.classList.remove('active');
-      registerSection.classList.add('active');
-      loginSection.classList.remove('active');
-    });
-
-    // --- Globalne spremenljivke ---
-    let map, pathLine, markerGroup, watchId = null, startTime = null;
-    let path = [];
-    let darkMode = false;
-    let user = null;
-
-    // --- Tile layer ---
-    const lightTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OSM'
-    });
-    const darkTileLayer = L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png', {
-      maxZoom: 19,
-      attribution: '&copy; Stadia Maps'
-    });
-
-    // --- Prikaži glavni UI po loginu ---
-    function showMainUI() {
-      document.getElementById('login-container').style.display = 'none';
-      document.getElementById('main').style.display = 'flex';
-      initMap();
-      loadUserData();
+    // ------------ HELPER FUNCTIONS ------------
+    function saveUserData(username, data) {
+      const saved = JSON.parse(localStorage.getItem('gps_users') || '{}');
+      saved[username] = {...(saved[username] || {}), ...data};
+      localStorage.setItem('gps_users', JSON.stringify(saved));
     }
 
-    // --- Inicijalizacija mape ---
+    function loadUserData(username) {
+      const saved = JSON.parse(localStorage.getItem('gps_users') || '{}');
+      return saved[username] || null;
+    }
+
+    function formatTime(seconds) {
+      const hrs = Math.floor(seconds / 3600);
+      const mins = Math.floor((seconds % 3600) / 60);
+      const secs = Math.floor(seconds % 60);
+      return (hrs > 0 ? hrs + 'h ' : '') + (mins > 0 ? mins + 'm ' : '') + secs + 's';
+    }
+
+    // ------------ MAP INITIALIZATION ------------
     function initMap() {
-      if (map) return;
-      map = L.map('map', { zoomControl: true });
-      if (darkMode) {
-        darkTileLayer.addTo(map);
-      } else {
-        lightTileLayer.addTo(map);
+      if (map) {
+        map.remove();
       }
+
+      const tileLayer = window.darkMode
+        ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+        : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+
+      map = L.map('map').setView([46.0569, 14.5058], 13);
+      L.tileLayer(tileLayer, {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+
       markerGroup = L.layerGroup().addTo(map);
     }
 
-    // --- Posodobitev zemljevida glede na temo ---
-    function updateMapTheme() {
-      if (!map) return;
-      if (darkMode) {
-        map.removeLayer(lightTileLayer);
-        darkTileLayer.addTo(map);
-      } else {
-        map.removeLayer(darkTileLayer);
-        lightTileLayer.addTo(map);
-      }
-    }
+    // ------------ USER LOGIN/REGISTER ------------
+    const loginContainer = document.getElementById('login-container');
+    const mainUI = document.getElementById('main');
 
-    // --- Preklop teme ---
-    document.getElementById('toggle-theme').addEventListener('click', () => {
-      darkMode = !darkMode;
-      document.body.classList.toggle('dark-mode', darkMode);
-      updateMapTheme();
+    const loginForm = document.getElementById('login-form');
+    const registerModal = document.getElementById('register-modal');
+    const registerForm = document.getElementById('register-form');
+    const showRegisterBtn = document.getElementById('show-register');
+    const closeRegisterBtn = document.getElementById('close-register');
+
+    showRegisterBtn.addEventListener('click', () => {
+      registerModal.style.display = 'flex';
+    });
+    closeRegisterBtn.addEventListener('click', () => {
+      registerModal.style.display = 'none';
     });
 
-    // --- Prijava in registracija (shranjevanje uporabnikov lokalno) ---
-    function saveUser(username, password) {
-      let users = JSON.parse(localStorage.getItem('users') || '{}');
-      if (users[username]) return false; // že obstaja
-      users[username] = { password, rides: [], avatar: null };
-      localStorage.setItem('users', JSON.stringify(users));
-      return true;
-    }
-    function getUser(username) {
-      let users = JSON.parse(localStorage.getItem('users') || '{}');
-      return users[username] || null;
-    }
-    function saveUserData(username, data) {
-      let users = JSON.parse(localStorage.getItem('users') || '{}');
-      if (!users[username]) return false;
-      users[username] = {...users[username], ...data};
-      localStorage.setItem('users', JSON.stringify(users));
-      return true;
-    }
-
-    // --- Avatar ---
-    const avatarEl = document.getElementById('avatar');
-    function updateAvatar() {
-      if (!user || !user.avatar) {
-        avatarEl.style.backgroundImage = 'url(https://i.pravatar.cc/48?u=' + user.username + ')';
-      } else {
-        avatarEl.style.backgroundImage = `url(${user.avatar})`;
-      }
-    }
-
-    // --- Login forma ---
-    document.getElementById('login-form').addEventListener('submit', e => {
+    loginForm.addEventListener('submit', e => {
       e.preventDefault();
       const username = document.getElementById('login-username').value.trim();
-      const password = document.getElementById('login-password').value.trim();
-      const foundUser = getUser(username);
-      if (!foundUser) {
-        alert('Uporabnik ne obstaja!');
-        return;
+      const password = document.getElementById('login-password').value;
+
+      const savedUser = loadUserData(username);
+      if (savedUser && savedUser.password === password) {
+        user = {...savedUser, username};
+        loginContainer.style.display = 'none';
+        mainUI.style.display = 'flex';
+        initMap();
+        updateAvatar();
+        updateStatsPanel();
+        startGeolocationWatch();
+      } else {
+        alert('Nepravilno uporabniško ime ali geslo.');
       }
-      if (foundUser.password !== password) {
-        alert('Napačno geslo!');
-        return;
-      }
-      user = { username, ...foundUser };
-      showMainUI();
-      updateAvatar();
     });
 
-    // --- Registracija forma ---
-    document.getElementById('register-form').addEventListener('submit', e => {
+    registerForm.addEventListener('submit', e => {
       e.preventDefault();
       const username = document.getElementById('register-username').value.trim();
-      const password = document.getElementById('register-password').value.trim();
-      if (saveUser(username, password)) {
-        alert('Registracija uspešna! Prosimo, prijavite se.');
-        tabLogin.click();
-      } else {
+      const password = document.getElementById('register-password').value;
+
+      if (loadUserData(username)) {
         alert('Uporabniško ime že obstaja.');
-      }
-    });
-
-    // --- GPS sledenje ---
-    const startBtn = document.getElementById('startBtn');
-    const stopBtn = document.getElementById('stopBtn');
-
-    function formatTime(ms) {
-      let totalSeconds = Math.floor(ms / 1000);
-      let h = Math.floor(totalSeconds / 3600);
-      let m = Math.floor((totalSeconds % 3600) / 60);
-      let s = totalSeconds % 60;
-      return (h > 0 ? h + 'h ' : '') + (m > 0 ? m + 'm ' : '') + s + 's';
-    }
-
-    let totalDistance = 0;
-
-    startBtn.addEventListener('click', () => {
-      if (!navigator.geolocation) {
-        alert('Vaš brskalnik ne podpira geolokacije.');
         return;
       }
-      path = [];
-      totalDistance = 0;
-      startTime = Date.now();
-      updateStats(0,0,0,0);
-      startBtn.disabled = true;
-      stopBtn.disabled = false;
-      if (pathLine) map.removeLayer(pathLine);
-      markerGroup.clearLayers();
-
-      watchId = navigator.geolocation.watchPosition(onPositionUpdate, onPositionError, {
-        enableHighAccuracy: true,
-        maximumAge: 0,
-        timeout: 10000
-      });
+      saveUserData(username, {password, avatar: null, rides: []});
+      alert('Registracija uspešna. Prosimo, prijavite se.');
+      registerModal.style.display = 'none';
     });
 
-    stopBtn.addEventListener('click', () => {
-      if (watchId !== null) {
-        navigator.geolocation.clearWatch(watchId);
-        watchId = null;
-      }
-      startBtn.disabled = false;
-      stopBtn.disabled = true;
-      saveRide();
-      resetStats();
-    });
+    // ------------ AVATAR ------------
+    const avatarDiv = document.getElementById('avatar');
+    const avatarInput = document.getElementById('avatar-input');
 
-    function onPositionUpdate(position) {
-      const { latitude, longitude, altitude, speed } = position.coords;
-      const timeElapsed = Date.now() - startTime;
-
-      if (path.length > 0) {
-        const lastPoint = path[path.length - 1];
-        const dist = getDistanceFromLatLonInMeters(lastPoint.lat, lastPoint.lng, latitude, longitude);
-        totalDistance += dist;
-      }
-      path.push({ lat: latitude, lng: longitude, altitude, speed, timestamp: Date.now() });
-
-      updateStats(timeElapsed, totalDistance, speed, altitude);
-
-      if (!pathLine) {
-        pathLine = L.polyline(path, { color: 'cyan' }).addTo(map);
-        map.fitBounds(pathLine.getBounds());
-      } else {
-        pathLine.setLatLngs(path);
-        map.fitBounds(pathLine.getBounds());
-      }
-
-      markerGroup.clearLayers();
-      L.circleMarker([latitude, longitude], { radius: 7, color: '#66ccff', fillColor: '#66ccff', fillOpacity: 0.7 }).addTo(markerGroup);
-    }
-    function onPositionError(error) {
-      alert('Napaka pri pridobivanju lokacije: ' + error.message);
-    }
-
-    function updateStats(timeMs, distanceM, speedMps, altitude) {
-      document.getElementById('stat-time').textContent = formatTime(timeMs);
-      document.getElementById('stat-distance').textContent = distanceM.toFixed(0) + ' m';
-
-      // Povprečna hitrost v km/h
-      let avgSpeed = timeMs > 0 ? (distanceM / (timeMs / 1000)) * 3.6 : 0;
-      document.getElementById('stat-avgSpeed').textContent = avgSpeed.toFixed(1) + ' km/h';
-
-      // Trenutna hitrost (če je null, 0)
-      let speedKmh = speedMps !== null && speedMps !== undefined ? speedMps * 3.6 : 0;
-      document.getElementById('stat-speed').textContent = speedKmh.toFixed(1) + ' km/h';
-
-      // Višina
-      document.getElementById('stat-altitude').textContent = altitude !== null && altitude !== undefined ? altitude.toFixed(1) + ' m' : '-';
-
-      // Posodobi lokacijo & državo
-      if (path.length > 0) {
-        updateLocation(path[path.length-1].lat, path[path.length-1].lng);
-      }
-    }
-
-    function resetStats() {
-      document.getElementById('stat-time').textContent = '0s';
-      document.getElementById('stat-distance').textContent = '0 m';
-      document.getElementById('stat-avgSpeed').textContent = '0 km/h';
-      document.getElementById('stat-speed').textContent = '0 km/h';
-      document.getElementById('stat-altitude').textContent = '-';
-      document.getElementById('country').textContent = '-';
-      document.getElementById('location').textContent = '-';
-      document.getElementById('progress').textContent = '0%';
-
-      if (pathLine) {
-        map.removeLayer(pathLine);
-        pathLine = null;
-      }
-      markerGroup.clearLayers();
-      path = [];
-      totalDistance = 0;
-    }
-
-    // --- Funkcija za izračun razdalje med koordinatami ---
-    function getDistanceFromLatLonInMeters(lat1, lon1, lat2, lon2) {
-      const R = 6371e3; // meters
-      const φ1 = lat1 * Math.PI/180;
-      const φ2 = lat2 * Math.PI/180;
-      const Δφ = (lat2-lat1) * Math.PI/180;
-      const Δλ = (lon2-lon1) * Math.PI/180;
-      const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-                Math.cos(φ1) * Math.cos(φ2) *
-                Math.sin(Δλ/2) * Math.sin(Δλ/2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-      const d = R * c;
-      return d;
-    }
-
-    // --- Reverse geocoding (nominatim) za prikaz lokacije in države ---
-    let lastCountry = '';
-    async function updateLocation(lat, lng) {
-      try {
-        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`);
-        const data = await res.json();
-        if (!data.address) return;
-        const country = data.address.country || '-';
-        const city = data.address.city || data.address.town || data.address.village || data.address.hamlet || '-';
-        const road = data.address.road || '';
-        const houseNumber = data.address.house_number || '';
-        const fullAddress = (road ? road + ' ' : '') + houseNumber + (houseNumber ? ', ' : '') + city;
-
-        document.getElementById('country').textContent = country;
-        document.getElementById('location').textContent = fullAddress || city;
-
-        // Če je država spremenjena, resetiraj odstotek
-        if (country !== lastCountry) {
-          lastCountry = country;
-          document.getElementById('progress').textContent = '0%';
-          return;
-        }
-
-        // Izračunaj % raziskane države
-        let bbox = data.boundingbox || null;
-        if (bbox) {
-          // Približno: odstotek glede na to, koliko poti pokriva približno
-          // Tu je samo dummy vrednost glede na razdaljo
-          let perc = Math.min(100, (totalDistance / 10000) * 100);
-          document.getElementById('progress').textContent = perc.toFixed(1) + '%';
-        }
-
-      } catch (err) {
-        console.warn('Napaka pri pridobivanju lokacije', err);
-      }
-    }
-
-    // --- Shrani vožnjo v uporabnikov profil ---
-    function saveRide() {
-      if (!user) return;
-      if (path.length < 2) return;
-
-      const ride = {
-        id: Date.now(),
-        path,
-        startTime,
-        endTime: Date.now(),
-        distance: totalDistance,
-        duration: Date.now() - startTime,
-      };
-      user.rides.push(ride);
-      saveUserData(user.username, { rides: user.rides });
-      alert('Vožnja shranjena.');
-    }
-
-    // --- Naloži uporabniške podatke ---
-    function loadUserData() {
-      if (!user) return;
-      const storedUser = getUser(user.username);
-      if (storedUser) {
-        user.rides = storedUser.rides || [];
-        user.avatar = storedUser.avatar || null;
-        updateAvatar();
-      }
-    }
-
-    // --- Avatar klik: odpri zgodovino voženj ---
-    avatarEl.addEventListener('click', () => {
-      if (!user || !user.rides.length) {
-        alert('Ni zgodovine voženj.');
-        return;
-      }
+    avatarDiv.addEventListener('click', () => {
       showRideHistory();
     });
 
-    // --- Modal zgodovine voženj ---
-    const modal = document.getElementById('ride-history-modal');
-    const closeModalBtn = document.getElementById('close-modal');
-    closeModalBtn.addEventListener('click', () => {
-      modal.style.display = 'none';
-    });
-    window.addEventListener('click', e => {
-      if (e.target === modal) {
-        modal.style.display = 'none';
-      }
-    });
-
-    function showRideHistory() {
-      const list = document.getElementById('ride-list');
-      list.innerHTML = '';
-      user.rides.forEach(ride => {
-        const item = document.createElement('li');
-        const date = new Date(ride.startTime);
-        item.textContent = `${date.toLocaleString()} — Razdalja: ${ride.distance.toFixed(0)} m, Čas: ${formatTime(ride.duration)}`;
-        item.style.cursor = 'pointer';
-        item.addEventListener('click', () => {
-          showRideOnMap(ride);
-          modal.style.display = 'none';
-        });
-        list.appendChild(item);
-      });
-      modal.style.display = 'flex';
-    }
-
-    function showRideOnMap(ride) {
-      if (!map) return;
-      if (pathLine) map.removeLayer(pathLine);
-      markerGroup.clearLayers();
-      pathLine = L.polyline(ride.path, { color: 'orange' }).addTo(map);
-      map.fitBounds(pathLine.getBounds());
-    }
-
-    // --- Upload avatar ---
-    const avatarInput = document.getElementById('avatar-input');
     avatarInput.addEventListener('change', e => {
       const file = e.target.files[0];
       if (!file) return;
       const reader = new FileReader();
       reader.onload = function(event) {
         user.avatar = event.target.result;
-        saveUserData(user.username, { avatar: user.avatar });
+        saveUserData(user.username, {avatar: user.avatar});
         updateAvatar();
       };
       reader.readAsDataURL(file);
     });
 
-  </script>
+    function updateAvatar() {
+      if (user.avatar) {
+        avatarDiv.style.backgroundImage = `url(${user.avatar})`;
+      } else {
+        avatarDiv.style.backgroundImage = 'url(https://i.pravatar.cc/48)';
+      }
+    }
 
+    // ------------ GELOCATION & TRACKING ------------
+    function startGeolocationWatch() {
+      if (!navigator.geolocation) {
+        alert('Vaša naprava ne podpira geolokacije.');
+        return;
+      }
+      watchId = navigator.geolocation.watchPosition(onPositionUpdate, onPositionError, {
+        enableHighAccuracy: true,
+        maximumAge: 1000,
+        timeout: 10000
+      });
+    }
+
+    function stopGeolocationWatch() {
+      if (watchId !== undefined) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = undefined;
+      }
+    }
+
+    function onPositionUpdate(position) {
+      const {latitude, longitude, speed, altitude} = position.coords;
+      const latlng = [latitude, longitude];
+
+      // Update map
+      if (map) {
+        map.setView(latlng, map.getZoom());
+        if (rideStarted) {
+          ridePath.push(latlng);
+          if (ridePath.length > 1) {
+            const last = ridePath[ridePath.length - 2];
+            rideDistance += map.distance(last, latlng);
+          }
+          updateRidePath();
+        }
+        updateStats(speed, altitude);
+        updateLocationInfo(latitude, longitude);
+      }
+    }
+
+    function onPositionError(error) {
+      console.warn('Geolocation error:', error.message);
+    }
+
+    function updateRidePath() {
+      if (pathLine) {
+        map.removeLayer(pathLine);
+      }
+      if (ridePath.length > 1) {
+        pathLine = L.polyline(ridePath, {color: 'orange'}).addTo(map);
+      }
+    }
+
+    // ------------ START/STOP VOŽNJE ------------
+    const startBtn = document.getElementById('start-ride');
+    const stopBtn = document.getElementById('stop-ride');
+
+    startBtn.addEventListener('click', () => {
+      if (rideStarted) return;
+      rideStarted = true;
+      rideStartTime = Date.now();
+      ridePath = [];
+      rideDistance = 0;
+      lastPosition = null;
+      startBtn.disabled = true;
+      stopBtn.disabled = false;
+      updateStatsPanel(true);
+    });
+
+    stopBtn.addEventListener('click', () => {
+      if (!rideStarted) return;
+      rideStarted = false;
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+      saveRide();
+      resetStatsPanel();
+      updateRidePath();
+    });
+
+    // ------------ STATISTIKA ------------
+    let elapsedSeconds = 0;
+    let statsInterval;
+
+    function updateStats(speed, altitude) {
+      if (!rideStarted) return;
+      elapsedSeconds = Math.floor((Date.now() - rideStartTime) / 1000);
+
+      // Hitrost m/s v km/h
+      const kmhSpeed = speed ? (speed * 3.6).toFixed(1) : '0';
+
+      document.getElementById('stat-speed').textContent = kmhSpeed + ' km/h';
+      document.getElementById('stat-altitude').textContent = altitude !== null ? altitude.toFixed(0) + ' m' : '-';
+      document.getElementById('stat-distance').textContent = rideDistance.toFixed(0) + ' m';
+      document.getElementById('stat-time').textContent = formatTime(elapsedSeconds);
+      document.getElementById('stat-avgSpeed').textContent = (rideDistance / elapsedSeconds * 3.6).toFixed(1) + ' km/h';
+    }
+
+    function updateStatsPanel(reset=false) {
+      if (reset) {
+        elapsedSeconds = 0;
+        rideDistance = 0;
+        document.getElementById('stat-speed').textContent = '0 km/h';
+        document.getElementById('stat-altitude').textContent = '-';
+        document.getElementById('stat-distance').textContent = '0 m';
+        document.getElementById('stat-time').textContent = '0s';
+        document.getElementById('stat-avgSpeed').textContent = '0 km/h';
+      }
+    }
+
+    function resetStatsPanel() {
+      updateStatsPanel(true);
+    }
+
+    // ------------ LOKACIJA IN DRŽAVA (reverse geocode) ------------
+    async function updateLocationInfo(lat, lon) {
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`);
+        const data = await res.json();
+        const country = data.address.country || '-';
+        const road = data.address.road || '';
+        const house = data.address.house_number || '';
+        const location = (road + (house ? ' ' + house : '')).trim() || '-';
+
+        document.getElementById('country').textContent = country;
+        document.getElementById('location').textContent = location;
+
+        // Posodobitev napredka (dummy primer, realno bi imel zemljevid prevoženih delov)
+        const progressPercent = (Math.random() * 0.5).toFixed(4);
+        document.getElementById('progress').textContent = (progressPercent * 100).toFixed(2) + '%';
+      } catch (e) {
+        document.getElementById('country').textContent = '-';
+        document.getElementById('location').textContent = '-';
+        document.getElementById('progress').textContent = '0%';
+      }
+    }
+
+    // ------------ SHRANJEVANJE VOŽNJE ------------
+    function saveRide() {
+      if (!user.rides) user.rides = [];
+      const endTime = Date.now();
+      const duration = (endTime - rideStartTime) / 1000;
+      user.rides.push({
+        startTime: rideStartTime,
+        endTime,
+        duration,
+        distance: rideDistance,
+        path: ridePath.slice()
+      });
+      saveUserData(user.username, {rides: user.rides});
+    }
+
+    // ------------ ZGODOVINA VOŽENJ (modal) ------------
+    const rideHistoryModal = document.getElementById('ride-history-modal');
+    const rideList = document.getElementById('ride-list');
+    const closeModalBtn = document.getElementById('close-modal');
+
+    closeModalBtn.addEventListener('click', () => {
+      rideHistoryModal.style.display = 'none';
+      if (pathLine) {
+        map.removeLayer(pathLine);
+        pathLine = null;
+      }
+      markerGroup.clearLayers();
+    });
+
+    window.addEventListener('click', e => {
+      if (e.target === rideHistoryModal) {
+        rideHistoryModal.style.display = 'none';
+        if (pathLine) {
+          map.removeLayer(pathLine);
+          pathLine = null;
+        }
+        markerGroup.clearLayers();
+      }
+    });
+
+    function showRideHistory() {
+      if (!user.rides || user.rides.length === 0) {
+        alert('Ni shranjenih voženj.');
+        return;
+      }
+      rideList.innerHTML = '';
+      user.rides.forEach((ride, idx) => {
+        const item = document.createElement('li');
+        const startDate = new Date(ride.startTime);
+        item.textContent = `${startDate.toLocaleString()} - ${ride.distance.toFixed(0)} m, ${formatTime(ride.duration)}`;
+        item.style.cursor = 'pointer';
+        item.addEventListener('click', () => {
+          showRideOnMap(ride);
+          rideHistoryModal.style.display = 'none';
+        });
+        rideList.appendChild(item);
+      });
+      rideHistoryModal.style.display = 'flex';
+    }
+
+    function showRideOnMap(ride) {
+      if (pathLine) {
+        map.removeLayer(pathLine);
+      }
+      markerGroup.clearLayers();
+      pathLine = L.polyline(ride.path, {color: 'blue'}).addTo(map);
+      if (ride.path.length > 0) {
+        markerGroup.addLayer(L.marker(ride.path[0]).bindPopup('Začetek vožnje').openPopup());
+        markerGroup.addLayer(L.marker(ride.path[ride.path.length - 1]).bindPopup('Konec vožnje').openPopup());
+      }
+      map.fitBounds(pathLine.getBounds());
+    }
+  </script>
 </body>
 </html>
-
