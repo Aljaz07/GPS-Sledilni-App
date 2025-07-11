@@ -259,7 +259,7 @@
 }
 
 #stats-panel .break {
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
 #stats-panel div {
@@ -516,7 +516,7 @@
   <button id="start-btn" data-tooltip="Začni vožnjo ▶️">▶️ Začni</button>
   <button id="stop-btn" disabled data-tooltip="Ustavi vožnjo ⏹️">⏹️ Ustavi</button>
   <button id="reset-btn" data-tooltip="Ponastavi statistiko 🔄">🔄 Reset</button>
-  <button id="current-location" data-tooltip="Pokaži trenutno lokacijo 📍">📍 Lokacija</button>
+  <button id="location-btn" data-tooltip="Pokaži trenutno lokacijo 📍">📍 Lokacija</button>
    </div>
 
     <div id="stats-panel" aria-live="polite" aria-atomic="true" aria-relevant="text">
@@ -525,7 +525,7 @@
       <div><span>Razdalja:</span><span id="distance"> 0 m</span></div>
       <div><span>Čas:</span><span id="duration"> 00:00:00</span></div>
       <div><span>Povprečna hitrost:</span><span id="avg-speed"> 0 km/h</span></div>
-      <div><span>Država:</span><span id="country"> -</span></div>
+      <div><span>Država:</span><span id="country">                    -</span></div>
       <div class="break"><span>Lokacija:</span><span id="location">-</span></div>
       <div><span>Napredek raziskave:</span><span id="progress"> 0%</span></div>
     </div>
@@ -764,6 +764,22 @@
       resetStats();
       tracking = false;
       if (watchId) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+      const locationBtn = document.getElementById('current-location');
+
+if (locationBtn) {
+  locationBtn.addEventListener('click', () => {
+    if (navigator.geolocation && window.map) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          map.setView([latitude, longitude], 17);
+        },
+        (error) => {
+          alert('Napaka pri pridobivanju lokacije.');
+        }
+      );
+    } else {
+      alert('Zemljevid ali geolokacija nista na voljo.');
     }
   };
 
