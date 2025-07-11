@@ -255,7 +255,6 @@
   letter-spacing: 0.02em;
 }
 
-/* Spodnji levi gumbi */
 #bottom-left-buttons {
   position: fixed;
   bottom: 15px;
@@ -280,9 +279,16 @@
   transition: background-color 0.3s ease;
 }
 
-#bottom-left-buttons button:hover {
+#bottom-left-buttons button:disabled {
+  background-color: #5a9bf6;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+#bottom-left-buttons button:hover:not(:disabled) {
   background-color: #0056b3;
 }
+
     /* Start/Stop ride buttons container */
     #controls {
       display: flex;
@@ -481,11 +487,12 @@
 
     <div id="map" role="region" aria-label="Zemljevid GPS sledenja"></div>
 
-    <div id="controls" role="group" aria-label="Kontrole vožnje">
-      <button id="start-btn" data-tooltip="Začni vožnjo ▶️">▶️ Začni</button>
-      <button id="stop-btn" disabled data-tooltip="Ustavi vožnjo ⏹️">⏹️ Ustavi</button>
-      <button id="reset-btn" data-tooltip="Ponastavi statistiko 🔄">🔄 Reset</button>
-    </div>
+   <div id="bottom-left-buttons" role="group" aria-label="Kontrole vožnje">
+  <button id="start-btn" data-tooltip="Začni vožnjo ▶️">▶️ Začni</button>
+  <button id="stop-btn" disabled data-tooltip="Ustavi vožnjo ⏹️">⏹️ Ustavi</button>
+  <button id="reset-btn" data-tooltip="Ponastavi statistiko 🔄">🔄 Reset</button>
+  <button id="current-location" data-tooltip="Pokaži trenutno lokacijo 📍">📍 Lokacija</button>
+   </div>
 
     <div id="stats-panel" aria-live="polite" aria-atomic="true" aria-relevant="text">
       <div><span>Hitrost:</span><span id="speed">0 km/h</span></div>
