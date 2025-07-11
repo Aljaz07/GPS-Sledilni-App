@@ -4,6 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>GPS Sledilna Aplikacija – Raziskovanje sveta</title>
+
+  <!-- Leaflet CSS -->
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -17,28 +19,103 @@
     rel="stylesheet"
     href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"
   />
+
   <style>
-    html, body {
-      height: 100%;
+    /* Temni in svetli način */
+    body {
       margin: 0;
-    }
-    #map {
       height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-color);
+      color: var(--text-color);
+      font-family: Arial, sans-serif;
+      transition: background 0.3s, color 0.3s;
+    }
+
+    :root {
+      --bg-color: #fff;
+      --text-color: #000;
+      --control-bg: #fff;
+      --control-shadow: rgba(0,0,0,0.2);
+      --button-bg: linear-gradient(145deg, #e0e0e0, #bababa);
+      --button-shadow: 5px 5px 10px #a3a3a3, -5px -5px 10px #ffffff;
+    }
+
+    body.dark {
+      --bg-color: #121212;
+      --text-color: #eee;
+      --control-bg: #1e1e1e;
+      --control-shadow: rgba(0,0,0,0.7);
+      --button-bg: linear-gradient(145deg, #2a2a2a, #1a1a1a);
+      --button-shadow: 5px 5px 10px #171717, -5px -5px 10px #3a3a3a;
+    }
+
+    #map {
+      flex-grow: 1;
       width: 100%;
+      /* višina prilagojena flexu */
     }
+
     .controls {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      z-index: 1000;
-      background: white;
+      position: relative;
       padding: 10px;
-      border-radius: 8px;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+      background: var(--control-bg);
+      box-shadow: 0 2px 6px var(--control-shadow);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      z-index: 1000;
     }
-    .progress {
-      margin-top: 8px;
+
+    .controls button {
+      cursor: pointer;
+      padding: 10px 15px;
+      border: none;
+      border-radius: 12px;
+      background: var(--button-bg);
+      box-shadow: var(--button-shadow);
+      color: var(--text-color);
+      font-weight: 600;
+      transition: all 0.2s ease;
+      user-select: none;
+      outline-offset: 2px;
+    }
+
+    .controls button:hover {
+      filter: brightness(1.1);
+      box-shadow: inset 2px 2px 5px #a9a9a9,
+                  inset -2px -2px 5px #ffffff;
+    }
+
+    .controls button:active {
+      transform: translateY(2px);
+      box-shadow: inset 1px 1px 3px #00000066;
+    }
+
+    .progress, #point-count, #country {
+      flex-grow: 1;
       font-size: 14px;
+      user-select: none;
+    }
+
+    /* Gumb za temni način na desni */
+    #darkModeToggle {
+      margin-left: auto;
+      background: #444;
+      color: #eee;
+      font-weight: bold;
+    }
+
+    /* Icon avatar style */
+    .avatar-icon {
+      border-radius: 50%;
+      border: 3px solid #337ab7;
+      background: url('https://cdn-icons-png.flaticon.com/512/194/194938.png') no-repeat center/cover;
+      width: 40px;
+      height: 40px;
+      box-shadow: 0 0 8px rgba(51,122,183,0.7);
     }
   </style>
 </head>
@@ -50,6 +127,9 @@
     <button onclick="exportPath()">Izvozi JSON</button>
     <button onclick="exportGeoJSON()">Izvozi GeoJSON</button>
     <button onclick="exportGPX()">Izvozi GPX</button>
+    <button onclick="centerOnUser()">Pojdi na mojo lokacijo</button>
+    <button id="darkModeToggle">Temni način</button>
+
     <div id="progress" class="progress">Napredek: 0%</div>
     <div id="point-count">Točk: 0</div>
     <div id="country">Država: -</div>
@@ -61,23 +141,41 @@
   <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
 
   <script>
-    window.onload = function () {
+    document.addEventListener("DOMContentLoaded", function () {
       const map = L.map("map", { maxZoom: 18 }).setView([46.0569, 14.5058], 8);
+
+      // TileLayer (svetla privzeta)
+      const lightTiles = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors'
+      });
+
+      // Temni tileLayer (CartoDB Dark Matter)
+      const darkTiles = L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+        attribution: '&copy; <a href="https://carto.com/">CARTO</a>'
+      });
+
+      // Začnemo s svetlim načinom
+      let isDarkMode = false;
+      lightTiles.addTo(map);
 
       let path = [];
       let polyline = L.polyline(path, { color: "blue" }).addTo(map);
       let markers = L.markerClusterGroup();
       map.addLayer(markers);
 
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors'
-      }).addTo(map);
-
       let visitedGrids = new Set();
       let totalGrids = 10000;
       let watchId = null;
       let countriesVisited = new Set();
       let countryGrids = {};
+
+      // Avatar marker - posebna ikona
+      const avatarIcon = L.divIcon({
+        className: 'avatar-icon',
+        iconSize: [40, 40],
+        iconAnchor: [20, 40]
+      });
+      let avatarMarker = null;
 
       function getGridId(lat, lng) {
         const latId = Math.floor(lat * 20);
@@ -111,8 +209,16 @@
         path.push(point);
         polyline.setLatLngs(path);
 
+        // Dodaj običajni marker
         const marker = L.circleMarker(point, { radius: 5, color: "blue" });
         markers.addLayer(marker);
+
+        // Posodobi avatar marker (premakni ga)
+        if (!avatarMarker) {
+          avatarMarker = L.marker(point, { icon: avatarIcon }).addTo(map);
+        } else {
+          avatarMarker.setLatLng(point);
+        }
 
         const gridId = getGridId(lat, lng);
         visitedGrids.add(gridId);
@@ -150,75 +256,4 @@
             { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
           );
         } else {
-          alert("Geolokacija ni podprta v tem brskalniku.");
-        }
-      };
-
-      window.stopTracking = function () {
-        if (watchId !== null) {
-          navigator.geolocation.clearWatch(watchId);
-          watchId = null;
-        }
-      };
-
-      window.clearTrack = function () {
-        window.stopTracking();
-        path = [];
-        polyline.setLatLngs(path);
-        markers.clearLayers();
-        visitedGrids.clear();
-        countriesVisited.clear();
-        countryGrids = {};
-        document.getElementById("progress").innerText = `Napredek: 0%`;
-        document.getElementById("point-count").innerText = `Točk: 0`;
-        document.getElementById("country").innerText = `Država: -`;
-      };
-
-      window.exportPath = function () {
-        const blob = new Blob([
-          JSON.stringify({ path, countries: Array.from(countriesVisited) }, null, 2)
-        ], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'podatki-potovanja.json';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      };
-
-      window.exportGeoJSON = function () {
-        const geojson = {
-          type: "FeatureCollection",
-          features: path.map(p => ({
-            type: "Feature",
-            geometry: { type: "Point", coordinates: [p[1], p[0]] },
-            properties: {}
-          }))
-        };
-        const blob = new Blob([JSON.stringify(geojson, null, 2)], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'pot.geojson';
-        a.click();
-      };
-
-      window.exportGPX = function () {
-        let gpx = `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="World Explorer App" xmlns="http://www.topografix.com/GPX/1/1">\n<trk><name>Pot</name><trkseg>`;
-        path.forEach(p => {
-          gpx += `\n<trkpt lat="${p[0]}" lon="${p[1]}"></trkpt>`;
-        });
-        gpx += `\n</trkseg></trk></gpx>`;
-        const blob = new Blob([gpx], { type: "application/gpx+xml" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'pot.gpx';
-        a.click();
-      };
-    };
-  </script>
-</body>
-</html>
+          alert("Geolokacija ni podprta v
