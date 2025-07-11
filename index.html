@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GPS Sledilna Aplikacija – Raziskovanje sveta</title>
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    crossorigin=""
+  />
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"
+  />
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"
+  />
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+    }
+    #map {
+      height: 100vh;
+      width: 100%;
+    }
+    .controls {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 1000;
+      background: white;
+      padding: 10px;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    }
+    .progress {
+      margin-top: 8px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="controls">
+    <button onclick="startTracking()">Začni sledenje</button>
+    <button onclick="stopTracking()">Ustavi</button>
+    <button onclick="clearTrack()">Počisti</button>
+    <div id="progress" class="progress">Napredek: 0%</div>
+    <div id="point-count">Točk: 0</div>
+  </div>
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+  <script>
+    window.onload = function () {
+      let map = L.map("map").setView([46.0569, 14.5058], 8);
+      let path = [];
+      let polyline = L.polyline(path, { color: "blue" }).addTo(map);
+      let markers = L.markerClusterGroup();
+      map.addLayer(markers);
+      let visitedGrids = new Set();
+      let totalGrids = 10000;
+      let watchId = null;
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a>'
+      }).addTo(map);
+
+      function getGridId(lat, lng) {
+        const latId = Math.floor(lat * 20);
+        const lngId = Math.floor(lng * 20);
+        return `${latId}_${lngId}`;
+      }
+
+      function findNearbyPOIs(lat, lng) {
+        const pois = [
+          { name: "Bencinski servis", lat: lat + 0.001, lng: lng + 0.001 },
+          { name: "Trgovina", lat: lat - 0.001, lng: lng - 0.001 },
+        ];
+
+        pois.forEach(poi => {
+          const marker = L.marker([poi.lat, poi.lng]).bindPopup(poi.name);
+          markers.addLayer(marker);
+        });
+      }
+
+      function updatePath(lat, lng) {
+        const point = [lat, lng];
+        path.push(point);
+        polyline.setLatLngs(path);
+
+        const marker = L.circleMarker(point, {
+          radius: 5,
+          color: "blue"
+        }).addTo(map);
+        markers.addLayer(marker);
+
+        const gridId = getGridId(lat, lng);
+        visitedGrids.add(gridId);
+
+        const percent = ((visitedGrids.size / totalGrids) * 100).toFixed(2);
+        document.getElementById("progress").innerText = `Napredek: ${percent}%`;
+        document.getElementById("point-count").innerText = `Točk: ${path.length}`;
+
+        findNearbyPOIs(lat, lng);
+      }
+
+      window.startTracking = function () {
+        if (navigator.geolocation) {
+          watchId = navigator.geolocation.watchPosition(
+            (pos) => {
+              const { latitude, longitude } = pos.coords;
+              map.setView([latitude, longitude], map.getZoom());
+              updatePath(latitude, longitude);
+            },
+            (err) => alert("Napaka pri GPS: " + err.message),
+            { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+          );
+        } else {
+          alert("Geolokacija ni podprta v tem brskalniku.");
+        }
+      };
+
+      window.stopTracking = function () {
+        if (watchId !== null) {
+          navigator.geolocation.clearWatch(watchId);
+          watchId = null;
+        }
+      };
+
+      window.clearTrack = function () {
+        window.stopTracking();
+        path = [];
+        polyline.setLatLngs(path);
+        markers.clearLayers();
+        visitedGrids.clear();
+        document.getElementById("progress").innerText = `Napredek: 0%`;
+        document.getElementById("point-count").innerText = `Točk: 0`;
+      };
+    };
+  </script>
+</body>
+</html>
