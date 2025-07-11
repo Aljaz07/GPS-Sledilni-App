@@ -106,12 +106,12 @@
         }
       }
 
-      async function updatePath(lat, lng) {
+      function updatePath(lat, lng) {
         const point = [lat, lng];
         path.push(point);
         polyline.setLatLngs(path);
 
-        const marker = L.circleMarker(point, { radius: 5, color: "blue" }).addTo(map);
+        const marker = L.circleMarker(point, { radius: 5, color: "blue" });
         markers.addLayer(marker);
 
         const gridId = getGridId(lat, lng);
@@ -122,19 +122,20 @@
 
         findNearbyPOIs(lat, lng);
 
-        const country = await getCountry(lat, lng);
-        countriesVisited.add(country);
-        document.getElementById("country").innerText = `Država: ${country}`;
+        getCountry(lat, lng).then((country) => {
+          countriesVisited.add(country);
+          document.getElementById("country").innerText = `Država: ${country}`;
 
-        if (!countryGrids[country]) countryGrids[country] = new Set();
-        countryGrids[country].add(gridId);
+          if (!countryGrids[country]) countryGrids[country] = new Set();
+          countryGrids[country].add(gridId);
 
-        let html = '';
-        for (const c of countriesVisited) {
-          const pct = ((countryGrids[c]?.size || 0) / totalGrids * 100).toFixed(2);
-          html += `${c}: ${pct}%<br>`;
-        }
-        document.getElementById("progress").innerHTML = `Napredek:<br>${html}`;
+          let html = '';
+          for (const c of countriesVisited) {
+            const pct = ((countryGrids[c]?.size || 0) / totalGrids * 100).toFixed(2);
+            html += `${c}: ${pct}%<br>`;
+          }
+          document.getElementById("progress").innerHTML = `Napredek:<br>${html}`;
+        });
       }
 
       window.startTracking = function () {
