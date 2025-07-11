@@ -26,6 +26,7 @@
       margin: 0;
       background: #fff;
       transition: background 0.3s ease;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
     }
     #map {
       height: 100vh;
@@ -44,7 +45,6 @@
       flex-wrap: wrap;
       gap: 8px;
       max-width: 350px;
-      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
     }
     button {
       background: linear-gradient(145deg, #e0e0e0, #bababa);
@@ -55,17 +55,14 @@
       font-weight: 600;
       color: #333;
       cursor: pointer;
-      box-shadow: 5px 5px 8px #a3a3a3,
-                  -5px -5px 8px #ffffff;
+      box-shadow: 5px 5px 8px #a3a3a3, -5px -5px 8px #ffffff;
       transition: all 0.3s ease;
       flex: 1 1 45%;
       min-width: 120px;
       text-align: center;
-      user-select: none;
     }
     button:hover {
-      box-shadow: inset 5px 5px 8px #a3a3a3,
-                  inset -5px -5px 8px #ffffff;
+      box-shadow: inset 5px 5px 8px #a3a3a3, inset -5px -5px 8px #ffffff;
       color: #000;
     }
     .progress, #point-count, #country {
@@ -74,6 +71,14 @@
       font-size: 14px;
       font-weight: 600;
       color: #555;
+    }
+
+    #profile-pic {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      display: none;
+      object-fit: cover;
     }
 
     /* Temni način */
@@ -89,30 +94,43 @@
     body.dark-mode button {
       background: linear-gradient(145deg, #2c2c2c, #1a1a1a);
       color: #ccc;
-      box-shadow: 5px 5px 8px #0f0f0f,
-                  -5px -5px 8px #3a3a3a;
+      box-shadow: 5px 5px 8px #0f0f0f, -5px -5px 8px #3a3a3a;
     }
     body.dark-mode button:hover {
-      box-shadow: inset 5px 5px 8px #0f0f0f,
-                  inset -5px -5px 8px #3a3a3a;
+      box-shadow: inset 5px 5px 8px #0f0f0f, inset -5px -5px 8px #3a3a3a;
       color: #fff;
     }
   </style>
 </head>
 <body>
+
+  <!-- Registracija -->
+  <div id="auth-screen" style="position: fixed; z-index: 9999; top: 0; left: 0; width: 100%; height: 100%; background: url('https://images.unsplash.com/photo-1506748686214-e9df14d4d9d0') no-repeat center center / cover; display: flex; justify-content: center; align-items: center;">
+    <div style="background: rgba(0,0,0,0.75); padding: 30px; border-radius: 20px; text-align: center; color: white; box-shadow: 0 0 20px #000;">
+      <h2 style="font-size: 28px; margin-bottom: 16px; text-shadow: 0 0 10px #00f;">Registracija</h2>
+      <input type="text" id="username" placeholder="Uporabniško ime" style="padding: 10px; width: 100%; border-radius: 10px; margin-bottom: 10px;"><br>
+      <input type="file" id="avatar" accept="image/*" style="margin-bottom: 10px;"><br>
+      <button onclick="registerUser()">Vstopi v aplikacijo</button>
+    </div>
+  </div>
+
+  <!-- Kontrole -->
   <div class="controls">
+    <img id="profile-pic" src="" alt="Tvoj avatar" />
+    <span id="profile-name"></span>
+
     <button onclick="startTracking()">Začni sledenje</button>
     <button onclick="stopTracking()">Ustavi</button>
     <button onclick="clearTrack()">Počisti</button>
-    <button onclick="exportPath()">Izvozi JSON</button>
-    <button onclick="exportGeoJSON()">Izvozi GeoJSON</button>
     <button onclick="exportGPX()">Izvozi GPX</button>
     <button onclick="returnToCurrentLocation()">Moja lokacija</button>
     <button onclick="toggleDarkMode()">Preklopi temni način</button>
+
     <div id="progress" class="progress">Napredek: 0%</div>
     <div id="point-count">Točk: 0</div>
     <div id="country">Država: -</div>
   </div>
+
   <div id="map"></div>
 
   <!-- Leaflet JS -->
@@ -121,17 +139,51 @@
   <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
 
   <script>
+    function registerUser() {
+      const name = document.getElementById('username').value.trim();
+      const avatarInput = document.getElementById('avatar');
+      if (!name || avatarInput.files.length === 0) {
+        alert("Prosim vnesi ime in naloži sliko.");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        localStorage.setItem("userName", name);
+        localStorage.setItem("userAvatar", e.target.result);
+        document.getElementById("auth-screen").style.display = "none";
+        loadProfile();
+      };
+      reader.readAsDataURL(avatarInput.files[0]);
+    }
+
+    function loadProfile() {
+      const name = localStorage.getItem("userName");
+      const avatar = localStorage.getItem("userAvatar");
+      if (name && avatar) {
+        document.getElementById("profile-name").innerText = name;
+        const pic = document.getElementById("profile-pic");
+        pic.src = avatar;
+        pic.style.display = "inline-block";
+      }
+    }
+
+    window.addEventListener("load", () => {
+      if (localStorage.getItem("userName") && localStorage.getItem("userAvatar")) {
+        document.getElementById("auth-screen").style.display = "none";
+        loadProfile();
+      }
+    });
+
     document.addEventListener("DOMContentLoaded", function () {
-      // Zacetni sloji (svetli in temni)
       const lightModeLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: '&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors'
       });
 
       const darkModeLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        attribution: '&copy; OpenStreetMap contributors',
       });
 
-      // Inicializacija zemljevida s maxZoom
       const map = L.map("map", {
         center: [46.0569, 14.5058],
         zoom: 8,
@@ -150,11 +202,10 @@
       let countriesVisited = new Set();
       let countryGrids = {};
 
-      // Avatar marker (ikona)
       const avatarIcon = L.icon({
-        iconUrl: 'https://cdn-icons-png.flaticon.com/512/147/147144.png', // primer avatar ikone
+        iconUrl: 'https://cdn-icons-png.flaticon.com/512/147/147144.png',
         iconSize: [40, 40],
-        iconAnchor: [20, 40], // da se "stoji" na lokaciji
+        iconAnchor: [20, 40],
       });
       let avatarMarker = L.marker([46.0569, 14.5058], { icon: avatarIcon }).addTo(map);
 
@@ -179,8 +230,8 @@
         try {
           const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`, {
             headers: {
-              'User-Agent': 'WorldExplorerApp/1.0 (https://aljaz07.github.io)',
-              'Referer': 'https://aljaz07.github.io'
+              'User-Agent': 'WorldExplorerApp/1.0',
+              'Referer': 'https://your-app-url.com'
             }
           });
           const data = await res.json();
@@ -195,14 +246,12 @@
         path.push(point);
         polyline.setLatLngs(path);
 
-        // Dodaj tudi marker na poti (majhen krog)
         const marker = L.circleMarker(point, { radius: 5, color: "blue" });
         markers.addLayer(marker);
 
         const gridId = getGridId(lat, lng);
         visitedGrids.add(gridId);
 
-        const percent = ((visitedGrids.size / totalGrids) * 100).toFixed(2);
         document.getElementById("point-count").innerText = `Točk: ${path.length}`;
 
         findNearbyPOIs(lat, lng);
@@ -228,9 +277,7 @@
           watchId = navigator.geolocation.watchPosition(
             (pos) => {
               const { latitude, longitude } = pos.coords;
-              // Posodobi avatarja
               avatarMarker.setLatLng([latitude, longitude]);
-              // Premakni pogled
               map.setView([latitude, longitude], map.getZoom());
               updatePath(latitude, longitude);
             },
@@ -250,6 +297,9 @@
       };
 
       window.clearTrack = function () {
+        const confirmed = confirm("Ali si prepričan, da želiš izbrisati vse podatke? To bo izbrisalo tvojo pot.");
+        if (!confirmed) return;
+
         window.stopTracking();
         path = [];
         polyline.setLatLngs(path);
@@ -260,37 +310,6 @@
         document.getElementById("progress").innerText = `Napredek: 0%`;
         document.getElementById("point-count").innerText = `Točk: 0`;
         document.getElementById("country").innerText = `Država: -`;
-      };
-
-      window.exportPath = function () {
-        const blob = new Blob([
-          JSON.stringify({ path, countries: Array.from(countriesVisited) }, null, 2)
-        ], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'podatki-potovanja.json';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      };
-
-      window.exportGeoJSON = function () {
-        const geojson = {
-          type: "FeatureCollection",
-          features: path.map(p => ({
-            type: "Feature",
-            geometry: { type: "Point", coordinates: [p[1], p[0]] },
-            properties: {}
-          }))
-        };
-        const blob = new Blob([JSON.stringify(geojson, null, 2)], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'pot.geojson';
-        a.click();
       };
 
       window.exportGPX = function () {
