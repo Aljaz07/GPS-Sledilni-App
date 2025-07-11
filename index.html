@@ -756,15 +756,21 @@
     registerModal.style.display = 'none';
     loginContainer.style.display = 'flex';
   };
+  
+logoutTab.onclick = () => {
+  if (confirm('Odjava?')) {
+    mainApp.style.display = 'none';
+    loginContainer.style.display = 'flex';
+    resetStats();
+    tracking = false;
+    if (watchId) { 
+      navigator.geolocation.clearWatch(watchId); 
+      watchId = null; 
+    }
+  }
+};
 
-  logoutTab.onclick = () => {
-    if (confirm('Odjava?')) {
-      mainApp.style.display = 'none';
-      loginContainer.style.display = 'flex';
-      resetStats();
-      tracking = false;
-      if (watchId) { navigator.geolocation.clearWatch(watchId); watchId = null; }
-      const locationBtn = document.getElementById('current-location');
+const locationBtn = document.getElementById('current-location');
 
 if (locationBtn) {
   locationBtn.addEventListener('click', () => {
@@ -780,13 +786,11 @@ if (locationBtn) {
       );
     } else {
       alert('Zemljevid ali geolokacija nista na voljo.');
-     } 
-    });
+    }
+  });
 }
+
 (() => {
   mainApp.style.display = 'none';
   loginContainer.style.display = 'flex';
 })();
-</script>
-</body>
-</html>
