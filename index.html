@@ -490,386 +490,234 @@
     </div>
   </div>
 
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <script>
-    (() => {
-      // Prilagoditev teme
-      const body = document.body;
-      const themeToggleBtn = document.getElementById('theme-toggle');
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+(() => {
+  const body = document.body;
+  const themeToggleBtn = document.getElementById('theme-toggle');
+  const map = L.map('map').setView([46.0569, 14.5058], 13); // Ljubljana
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap'
+  }).addTo(map);
+  const userMarker = L.marker([0, 0]).addTo(map);
 
-      // Prijava in registracija
-      const loginContainer = document.getElementById('login-container');
-      const registerModal = document.getElementById('register-modal');
-      const loginForm = document.getElementById('login-form');
-      const registerForm = document.getElementById('register-form');
-      const showRegisterBtn = document.getElementById('show-register');
-      const showLoginBtn = document.getElementById('show-login');
+  const loginContainer = document.getElementById('login-container');
+  const registerModal = document.getElementById('register-modal');
+  const loginForm = document.getElementById('login-form');
+  const registerForm = document.getElementById('register-form');
+  const showRegisterBtn = document.getElementById('show-register');
+  const showLoginBtn = document.getElementById('show-login');
+  const mainApp = document.getElementById('main');
+  const logoutTab = document.getElementById('tab-logout');
+  const avatar = document.getElementById('avatar');
+  const avatarInput = document.getElementById('avatar-input');
+  const startBtn = document.getElementById('start-btn');
+  const stopBtn = document.getElementById('stop-btn');
+  const resetBtn = document.getElementById('reset-btn');
+  const speedEl = document.getElementById('speed');
+  const altitudeEl = document.getElementById('altitude');
+  const distanceEl = document.getElementById('distance');
+  const durationEl = document.getElementById('duration');
+  const avgSpeedEl = document.getElementById('avg-speed');
+  const countryEl = document.getElementById('country');
+  const locationEl = document.getElementById('location');
+  const progressEl = document.getElementById('progress');
+  const historyBtn = document.getElementById('history-btn');
+  const historyModal = document.getElementById('ride-history-modal');
+  const historyClose = document.getElementById('ride-history-close');
+  const historyList = document.getElementById('ride-history-list');
+  const downloadHistoryBtn = document.getElementById('download-history');
+  const clearHistoryBtn = document.getElementById('clear-history');
 
-      // Glavna aplikacija elementi
-      const mainApp = document.getElementById('main');
-      const logoutTab = document.getElementById('tab-logout');
+  let watchId = null, tracking = false, rideStartTime = null;
+  let rideData = [], totalDistance = 0, totalDuration = 0;
 
-      // Avatar in upload
-      const avatar = document.getElementById('avatar');
-      const avatarInput = document.getElementById('avatar-input');
+  const loadHistory = () => JSON.parse(localStorage.getItem('rideHistory') || '[]');
+  const saveHistory = (h) => localStorage.setItem('rideHistory', JSON.stringify(h));
 
-      // Gumbi za vožnjo
-      const startBtn = document.getElementById('start-btn');
-      const stopBtn = document.getElementById('stop-btn');
-      const resetBtn = document.getElementById('reset-btn');
+  const renderHistory = () => {
+    const h = loadHistory();
+    historyList.innerHTML = '';
+    if (!h.length) return historyList.innerHTML = '<div>Ni shranjenih voženj.</div>';
+    h.forEach((r, i) => {
+      const d = document.createElement('div');
+      d.textContent = `Vožnja ${i + 1}: ${r.date} | Razdalja: ${r.distance.toFixed(2)} m | Čas: ${r.duration} | Povp. hitrost: ${r.avgSpeed.toFixed(2)} km/h`;
+      historyList.appendChild(d);
+    });
+  };
 
-      // Statistik panel
-      const speedEl = document.getElementById('speed');
-      const altitudeEl = document.getElementById('altitude');
-      const distanceEl = document.getElementById('distance');
-      const durationEl = document.getElementById('duration');
-      const avgSpeedEl = document.getElementById('avg-speed');
-      const countryEl = document.getElementById('country');
-      const locationEl = document.getElementById('location');
-      const progressEl = document.getElementById('progress');
+  const resetStats = () => {
+    speedEl.textContent = '0 km/h';
+    altitudeEl.textContent = '0 m';
+    distanceEl.textContent = '0 m';
+    durationEl.textContent = '00:00:00';
+    avgSpeedEl.textContent = '0 km/h';
+    countryEl.textContent = '-';
+    locationEl.textContent = '-';
+    progressEl.textContent = '0%';
+    rideData = []; totalDistance = 0; totalDuration = 0;
+  };
 
-      // Zgodovina
-      const historyBtn = document.getElementById('history-btn');
-      const historyModal = document.getElementById('ride-history-modal');
-      const historyClose = document.getElementById('ride-history-close');
-      const historyList = document.getElementById('ride-history-list');
-      const downloadHistoryBtn = document.getElementById('download-history');
-      const clearHistoryBtn = document.getElementById('clear-history');
+  const formatDuration = ms => {
+    const s = Math.floor(ms / 1000);
+    return `${String(Math.floor(s / 3600)).padStart(2, '0')}:${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+  };
 
-      // Avtomatski časovnik za vožnjo
-      let watchId = null;
-      let tracking = false;
-      let rideStartTime = null;
-      let rideData = [];
-      let totalDistance = 0;
-      let totalDuration = 0;
+  const reverseGeocode = async (lat, lon) => {
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`);
+      const data = await res.json();
+      return data.address || {};
+    } catch { return {}; }
+  };
 
-      // Zgodovina voženj v localStorage pod ključem 'rideHistory'
-      const loadHistory = () => {
-        const hist = localStorage.getItem('rideHistory');
-        return hist ? JSON.parse(hist) : [];
+  const updateStats = async ({ coords }) => {
+    const { latitude, longitude, altitude, speed } = coords;
+    userMarker.setLatLng([latitude, longitude]);
+    map.setView([latitude, longitude], 15);
+
+    speedEl.textContent = speed ? `${(speed * 3.6).toFixed(1)} km/h` : '0 km/h';
+    altitudeEl.textContent = altitude ? `${Math.round(altitude)} m` : 'n/a';
+
+    if (rideData.length) {
+      const last = rideData.at(-1);
+      const d = getDistanceFromLatLonInMeters(last.latitude, last.longitude, latitude, longitude);
+      if (d > 0) totalDistance += d;
+      distanceEl.textContent = `${totalDistance.toFixed(2)} m`;
+    }
+
+    rideData.push({ latitude, longitude, altitude, speed: speed * 3.6 || 0, timestamp: Date.now() });
+    totalDuration = Date.now() - rideStartTime;
+    durationEl.textContent = formatDuration(totalDuration);
+    const avgSpeed = totalDistance && totalDuration ? (totalDistance / 1000) / (totalDuration / 3600000) : 0;
+    avgSpeedEl.textContent = `${avgSpeed.toFixed(2)} km/h`;
+
+    if (!updateStats.lastGeocodeTime || Date.now() - updateStats.lastGeocodeTime > 5000) {
+      updateStats.lastGeocodeTime = Date.now();
+      const addr = await reverseGeocode(latitude, longitude);
+      countryEl.textContent = addr.country || '-';
+      const full = [addr.road, addr.house_number, addr.suburb, addr.city || addr.town || addr.village].filter(Boolean).join(', ');
+      locationEl.textContent = full || '-';
+    }
+
+    const progressPercent = Math.min(100, (totalDuration / 1800000) * 100);
+    progressEl.textContent = `${progressPercent.toFixed(0)}%`;
+  };
+
+  const getDistanceFromLatLonInMeters = (lat1, lon1, lat2, lon2) => {
+    const R = 6371000;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) *
+              Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  };
+
+  startBtn.onclick = () => {
+    if (tracking || !navigator.geolocation) return alert('Geolokacija ni na voljo');
+    tracking = true;
+    rideStartTime = Date.now();
+    resetStats();
+    watchId = navigator.geolocation.watchPosition(updateStats, err => alert(err.message), {
+      enableHighAccuracy: true, maximumAge: 1000, timeout: 5000
+    });
+    startBtn.disabled = true;
+    stopBtn.disabled = false;
+  };
+
+  stopBtn.onclick = () => {
+    if (!tracking) return;
+    tracking = false;
+    navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+
+    if (rideData.length) {
+      const avgSpeed = totalDistance && totalDuration ? (totalDistance / 1000) / (totalDuration / 3600000) : 0;
+      const h = loadHistory();
+      h.push({ date: new Date(rideStartTime).toLocaleString(), distance: totalDistance, duration: formatDuration(totalDuration), avgSpeed });
+      saveHistory(h);
+    }
+  };
+
+  resetBtn.onclick = () => {
+    if (tracking) return alert('Najprej ustavi vožnjo.');
+    resetStats();
+  };
+
+  avatarInput.onchange = (e) => {
+    const file = e.target.files[0];
+    if (file?.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        avatar.style.backgroundImage = `url('${reader.result}')`;
+        localStorage.setItem('userAvatar', reader.result);
       };
-      const saveHistory = (history) => {
-        localStorage.setItem('rideHistory', JSON.stringify(history));
-      };
+      reader.readAsDataURL(file);
+    }
+  };
 
-      // Prikaz zgodovine voženj
-      const renderHistory = () => {
-        const history = loadHistory();
-        historyList.innerHTML = '';
-        if (history.length === 0) {
-          historyList.innerHTML = '<div>Ni shranjenih voženj.</div>';
-          return;
-        }
-        history.forEach((ride, i) => {
-          const div = document.createElement('div');
-          div.textContent = `Vožnja ${i + 1}: ${ride.date} | Razdalja: ${ride.distance.toFixed(2)} m | Čas: ${ride.duration} | Povp. hitrost: ${ride.avgSpeed.toFixed(2)} km/h`;
-          historyList.appendChild(div);
-        });
-      };
+  const savedAvatar = localStorage.getItem('userAvatar');
+  if (savedAvatar) avatar.style.backgroundImage = `url('${savedAvatar}')`;
 
-      // Reset statistike
-      const resetStats = () => {
-        speedEl.textContent = '0 km/h';
-        altitudeEl.textContent = '0 m';
-        distanceEl.textContent = '0 m';
-        durationEl.textContent = '00:00:00';
-        avgSpeedEl.textContent = '0 km/h';
-        countryEl.textContent = '-';
-        locationEl.textContent = '-';
-        progressEl.textContent = '0%';
-        totalDistance = 0;
-        totalDuration = 0;
-        rideData = [];
-      };
+  historyBtn.onclick = () => { renderHistory(); historyModal.style.display = 'flex'; };
+  historyClose.onclick = () => { historyModal.style.display = 'none'; };
+  downloadHistoryBtn.onclick = () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(loadHistory(), null, 2));
+    const a = document.createElement('a');
+    a.href = dataStr;
+    a.download = 'zgodovina_vozenj.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
+  clearHistoryBtn.onclick = () => {
+    if (confirm('Izbrisati vse?')) { localStorage.removeItem('rideHistory'); renderHistory(); }
+  };
 
-      // Format časa hh:mm:ss
-      const formatDuration = (ms) => {
-        const totalSeconds = Math.floor(ms / 1000);
-        const h = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
-        const m = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
-        const s = String(totalSeconds % 60).padStart(2, '0');
-        return `${h}:${m}:${s}`;
-      };
+  themeToggleBtn.onclick = () => {
+    body.classList.toggle('light');
+    localStorage.setItem('theme', body.classList.contains('light') ? 'light' : 'dark');
+  };
+  if (localStorage.getItem('theme') === 'light') body.classList.add('light');
 
-      // Pridobi podatke o lokaciji (reverse geocoding) preko Nominatim OpenStreetMap API
-      async function reverseGeocode(lat, lon) {
-        try {
-          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`);
-          if (!res.ok) throw new Error('Napaka pri reverse geokodiranju');
-          const data = await res.json();
-          return data.address || {};
-        } catch (err) {
-          return {};
-        }
-      }
+  showRegisterBtn.onclick = () => { loginContainer.style.display = 'none'; registerModal.style.display = 'flex'; };
+  showLoginBtn.onclick = () => { registerModal.style.display = 'none'; loginContainer.style.display = 'flex'; };
 
-      // Prikaz statistike posodobljenih podatkov
-      const updateStats = async (position) => {
-        const { latitude, longitude, altitude, speed } = position.coords;
+  loginForm.onsubmit = (e) => {
+    e.preventDefault();
+    const username = e.target['login-username'].value.trim();
+    const password = e.target['login-password'].value.trim();
+    if (!username || !password) return alert('Vnesi uporabniško ime in geslo.');
+    loginContainer.style.display = 'none';
+    mainApp.style.display = 'block';
+    alert(`Pozdravljen, ${username}!`);
+  };
 
-        const kmh = speed ? (speed * 3.6).toFixed(1) : '0';
-        speedEl.textContent = `${kmh} km/h`;
-        altitudeEl.textContent = altitude !== null ? `${Math.round(altitude)} m` : 'n/a';
+  registerForm.onsubmit = (e) => {
+    e.preventDefault();
+    const username = e.target['register-username'].value.trim();
+    const password = e.target['register-password'].value.trim();
+    if (!username || !password) return alert('Vnesi podatke.');
+    alert(`Uporabnik ${username} registriran.`);
+    registerModal.style.display = 'none';
+    loginContainer.style.display = 'flex';
+  };
 
-        if (rideData.length > 0) {
-          const last = rideData[rideData.length - 1];
-          const dist = getDistanceFromLatLonInMeters(
-            last.latitude,
-            last.longitude,
-            latitude,
-            longitude
-          );
-          if (dist > 0) totalDistance += dist;
-          distanceEl.textContent = `${totalDistance.toFixed(2)} km`;
-          distanceEl.textContent = `${totalDistance.toFixed(2)} m`;
-        }
-
-        // Dodaj trenutni položaj v rideData
-        rideData.push({
-          latitude,
-          longitude,
-          altitude,
-          speed: speed ? speed * 3.6 : 0, // km/h
-          timestamp: Date.now()
-        });
-
-        // Izračun trajanja vožnje
-        totalDuration = Date.now() - rideStartTime;
-        durationEl.textContent = formatDuration(totalDuration);
-
-        // Izračun povprečne hitrosti (km/h)
-        const avgSpeed = totalDistance > 0 && totalDuration > 0
-          ? (totalDistance / 1000) / (totalDuration / 3600000)
-          : 0;
-        avgSpeedEl.textContent = avgSpeed.toFixed(2) + ' km/h';
-
-        // Pridobi državo in mesto z reverznim geokodiranjem, ampak ne na vsakem posodobitvi (npr. vsake 5 sek)
-        if (!updateStats.lastGeocodeTime || Date.now() - updateStats.lastGeocodeTime > 5000) {
-          updateStats.lastGeocodeTime = Date.now();
-          const addr = await reverseGeocode(latitude, longitude);
-          countryEl.textContent = addr.country || '-';
-          locationEl.textContent = addr.city || addr.town || addr.village || '-';
-        }
-
-        // Napredek (na primer glede na neko fiktivno raziskavo)
-        // Tukaj za demonstracijo dodamo preprosto rast od 0 do 100 % glede na trajanje vožnje do 30 min (1800000 ms)
-        const progressPercent = Math.min(100, (totalDuration / 1800000) * 100);
-        progressEl.textContent = `${progressPercent.toFixed(0)}%`;
-      };
-
-      // Izračun razdalje med koordinatami (Haversine formula)
-      function getDistanceFromLatLonInMeters(lat1, lon1, lat2, lon2) {
-        const R = 6371000; // polmer Zemlje v metrih
-        const dLat = deg2rad(lat2 - lat1);
-        const dLon = deg2rad(lon2 - lon1);
-        const a =
-          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-          Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
-          Math.sin(dLon / 2) * Math.sin(dLon / 2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return R * c;
-      }
-      function deg2rad(deg) {
-        return deg * (Math.PI / 180);
-      }
-
-      // Začni vožnjo
-      startBtn.addEventListener('click', () => {
-        if (tracking) return;
-        if (!navigator.geolocation) {
-          alert('Vaš brskalnik ne podpira geolokacije!');
-          return;
-        }
-        tracking = true;
-        rideStartTime = Date.now();
-        resetStats();
-
-        watchId = navigator.geolocation.watchPosition(
-          position => {
-            updateStats(position);
-          },
-          error => {
-            alert('Napaka pri pridobivanju GPS podatkov: ' + error.message);
-          },
-          {
-            enableHighAccuracy: true,
-            maximumAge: 1000,
-            timeout: 5000
-          }
-        );
-        startBtn.disabled = true;
-        stopBtn.disabled = false;
-      });
-
-      // Ustavi vožnjo
-      stopBtn.addEventListener('click', () => {
-        if (!tracking) return;
-        tracking = false;
-        if (watchId !== null) {
-          navigator.geolocation.clearWatch(watchId);
-          watchId = null;
-        }
-        startBtn.disabled = false;
-        stopBtn.disabled = true;
-
-        // Shrani vožnjo v zgodovino
-        if (rideData.length > 0) {
-          const avgSpeed = totalDistance > 0 && totalDuration > 0
-            ? (totalDistance / 1000) / (totalDuration / 3600000)
-            : 0;
-          const history = loadHistory();
-          history.push({
-            date: new Date(rideStartTime).toLocaleString(),
-            distance: totalDistance,
-            duration: formatDuration(totalDuration),
-            avgSpeed: avgSpeed
-          });
-          saveHistory(history);
-        }
-      });
-
-      // Reset statistike in podatkov
-      resetBtn.addEventListener('click', () => {
-        if (tracking) {
-          alert('Najprej ustavite vožnjo, preden ponastavite statistiko.');
-          return;
-        }
-        resetStats();
-      });
-
-      // Upravljanje avatarja
-      avatarInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file && file.type.startsWith('image/')) {
-          const reader = new FileReader();
-          reader.onload = () => {
-            avatar.style.backgroundImage = `url('${reader.result}')`;
-            localStorage.setItem('userAvatar', reader.result);
-          };
-          reader.readAsDataURL(file);
-        }
-      });
-
-      // Nalaganje avatarja iz localStorage ob zagonu
-      const savedAvatar = localStorage.getItem('userAvatar');
-      if (savedAvatar) {
-        avatar.style.backgroundImage = `url('${savedAvatar}')`;
-      }
-
-      // Prikaz zgodovine voženj
-      historyBtn.addEventListener('click', () => {
-        renderHistory();
-        historyModal.style.display = 'flex';
-        historyModal.focus();
-      });
-
-      // Zapri zgodovino
-      historyClose.addEventListener('click', () => {
-        historyModal.style.display = 'none';
-      });
-      historyClose.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          historyModal.style.display = 'none';
-        }
-      });
-
-      // Prenos zgodovine kot JSON datoteka
-      downloadHistoryBtn.addEventListener('click', () => {
-        const history = loadHistory();
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(history, null, 2));
-        const downloadAnchor = document.createElement('a');
-        downloadAnchor.setAttribute('href', dataStr);
-        downloadAnchor.setAttribute('download', 'zgodovina_vozenj.json');
-        document.body.appendChild(downloadAnchor);
-        downloadAnchor.click();
-        downloadAnchor.remove();
-      });
-
-      // Izbriši zgodovino
-      clearHistoryBtn.addEventListener('click', () => {
-        if (confirm('Ali res želite izbrisati celotno zgodovino voženj?')) {
-          localStorage.removeItem('rideHistory');
-          renderHistory();
-        }
-      });
-
-      // Tema svetlo/temno
-      themeToggleBtn.addEventListener('click', () => {
-        if (body.classList.contains('dark-theme')) {
-          body.classList.remove('dark-theme');
-          localStorage.setItem('theme', 'light');
-        } else {
-          body.classList.add('dark-theme');
-          localStorage.setItem('theme', 'dark');
-        }
-      });
-
-      // Nastavi temo ob zagonu
-      const savedTheme = localStorage.getItem('theme');
-      if (savedTheme === 'dark') {
-        body.classList.add('dark-theme');
-      }
-
-      // Prikaži/Skrij prijavno in registracijsko okno
-      showRegisterBtn.addEventListener('click', () => {
-        loginContainer.style.display = 'none';
-        registerModal.style.display = 'flex';
-      });
-      showLoginBtn.addEventListener('click', () => {
-        registerModal.style.display = 'none';
-        loginContainer.style.display = 'flex';
-      });
-
-      // Obdelava prijave (za demo, brez resnične avtentikacije)
-      loginForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const username = e.target['login-username'].value.trim();
-        const password = e.target['login-password'].value.trim();
-        if (!username || !password) {
-          alert('Prosim vnesite uporabniško ime in geslo.');
-          return;
-        }
-        // Tu bi bila preveritev uporabnika - za demo sprejmemo vse
-        loginContainer.style.display = 'none';
-        mainApp.style.display = 'block';
-        alert(`Pozdravljen, ${username}!`);
-      });
-
-      // Obdelava registracije (za demo)
-      registerForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const username = e.target['register-username'].value.trim();
-        const password = e.target['register-password'].value.trim();
-        if (!username || !password) {
-          alert('Prosim vnesite uporabniško ime in geslo.');
-          return;
-        }
-        alert(`Uporabnik ${username} je uspešno registriran! Sedaj se lahko prijavite.`);
-        registerModal.style.display = 'none';
-        loginContainer.style.display = 'flex';
-      });
-
-      // Odjava
-      logoutTab.addEventListener('click', () => {
-        if (confirm('Ali ste prepričani, da želite odjaviti?')) {
-          mainApp.style.display = 'none';
-          loginContainer.style.display = 'flex';
-          resetStats();
-          rideData = [];
-          tracking = false;
-          if (watchId !== null) {
-            navigator.geolocation.clearWatch(watchId);
-            watchId = null;
-          }
-        }
-      });
-
-      // Prikaži prijavno okno ob zagonu
+  logoutTab.onclick = () => {
+    if (confirm('Odjava?')) {
       mainApp.style.display = 'none';
       loginContainer.style.display = 'flex';
+      resetStats();
+      tracking = false;
+      if (watchId) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+    }
+  };
 
-    })();
-  </script>
+  mainApp.style.display = 'none';
+  loginContainer.style.display = 'flex';
+})();
+</script>
 </body>
 </html>
