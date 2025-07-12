@@ -737,25 +737,41 @@
   showRegisterBtn.onclick = () => { loginContainer.style.display = 'none'; registerModal.style.display = 'flex'; };
   showLoginBtn.onclick = () => { registerModal.style.display = 'none'; loginContainer.style.display = 'flex'; };
 
-  loginForm.onsubmit = (e) => {
-    e.preventDefault();
-    const username = e.target['login-username'].value.trim();
-    const password = e.target['login-password'].value.trim();
-    if (!username || !password) return alert('Vnesi uporabniško ime in geslo.');
-    loginContainer.style.display = 'none';
-    mainApp.style.display = 'block';
-    alert(`Pozdravljen, ${username}!`);
-  };
+registerForm.onsubmit = (e) => {
+  e.preventDefault();
+  const username = e.target['register-username'].value.trim();
+  const password = e.target['register-password'].value.trim();
 
-  registerForm.onsubmit = (e) => {
-    e.preventDefault();
-    const username = e.target['register-username'].value.trim();
-    const password = e.target['register-password'].value.trim();
-    if (!username || !password) return alert('Vnesi podatke.');
-    alert(`Uporabnik ${username} registriran.`);
-    registerModal.style.display = 'none';
-    loginContainer.style.display = 'flex';
-  };
+  if (!username || !password) return alert('Vnesi podatke.');
+
+  const users = JSON.parse(localStorage.getItem('users') || '{}');
+  if (users[username]) {
+    return alert('Uporabniško ime že obstaja.');
+  }
+
+  users[username] = password;
+  localStorage.setItem('users', JSON.stringify(users));
+  alert(`Uporabnik ${username} registriran.`);
+  registerModal.style.display = 'none';
+  loginContainer.style.display = 'flex';
+};
+
+loginForm.onsubmit = (e) => {
+  e.preventDefault();
+  const username = e.target['login-username'].value.trim();
+  const password = e.target['login-password'].value.trim();
+
+  if (!username || !password) return alert('Vnesi uporabniško ime in geslo.');
+
+  const users = JSON.parse(localStorage.getItem('users') || '{}');
+  if (!users[username] || users[username] !== password) {
+    return alert('Napačno uporabniško ime ali geslo.');
+  }
+
+  loginContainer.style.display = 'none';
+  mainApp.style.display = 'block';
+  alert(`Pozdravljen, ${username}!`);
+};
   
 logoutTab.onclick = () => {
   if (confirm('Odjava?')) {
