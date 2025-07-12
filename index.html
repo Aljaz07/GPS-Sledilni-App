@@ -742,11 +742,16 @@ registerForm.onsubmit = (e) => {
   const username = e.target['register-username'].value.trim();
   const password = e.target['register-password'].value.trim();
 
-  if (!username || !password) return alert('Vnesi podatke.');
+  if (!username || !password) {
+    alert('Vnesi podatke.');
+    return;
+  }
 
   const users = JSON.parse(localStorage.getItem('users') || '{}');
+
   if (users[username]) {
-    return alert('Uporabniško ime že obstaja.');
+    alert('Uporabniško ime že obstaja.');
+    return;
   }
 
   users[username] = password;
@@ -761,16 +766,21 @@ loginForm.onsubmit = (e) => {
   const username = e.target['login-username'].value.trim();
   const password = e.target['login-password'].value.trim();
 
-  if (!username || !password) return alert('Vnesi uporabniško ime in geslo.');
-
-  const users = JSON.parse(localStorage.getItem('users') || '{}');
-  if (!users[username] || users[username] !== password) {
-    return alert('Napačno uporabniško ime ali geslo.');
+  if (!username || !password) {
+    alert('Vnesi uporabniško ime in geslo.');
+    return;
   }
 
+  const users = JSON.parse(localStorage.getItem('users') || '{}');
+
+  if (!users[username] || users[username] !== password) {
+    alert('Napačno uporabniško ime ali geslo.');
+    return;
+  }
+
+  alert(`Pozdravljen, ${username}!`);
   loginContainer.style.display = 'none';
   mainApp.style.display = 'block';
-  alert(`Pozdravljen, ${username}!`);
 };
   
 logoutTab.onclick = () => {
