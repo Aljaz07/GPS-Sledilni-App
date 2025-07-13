@@ -547,7 +547,7 @@
 (() => {
   const body = document.body;
   const themeToggleBtn = document.getElementById('theme-toggle');
-  const map = L.map('map').setView([46.0569, 14.5058], 13); // Ljubljana
+  const map = L.map('map').setView([46.0569, 14.5058], 13);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap'
   }).addTo(map);
@@ -737,86 +737,68 @@
   showRegisterBtn.onclick = () => { loginContainer.style.display = 'none'; registerModal.style.display = 'flex'; };
   showLoginBtn.onclick = () => { registerModal.style.display = 'none'; loginContainer.style.display = 'flex'; };
 
-registerForm.onsubmit = (e) => {
-  e.preventDefault();
-  console.log("Poskus registracije..."); // poskus registracije
-  const username = e.target['register-username'].value.trim();
-  const password = e.target['register-password'].value.trim();
+  registerForm.onsubmit = (e) => {
+    e.preventDefault();
+    const username = e.target['register-username'].value.trim();
+    const password = e.target['register-password'].value.trim();
 
-  if (!username || !password) {
-    alert('Vnesi podatke.');
-    return;
-  }
+    if (!username || !password) {
+      alert('Vnesi podatke.');
+      return;
+    }
 
-  const users = JSON.parse(localStorage.getItem('users') || '{}');
+    const users = JSON.parse(localStorage.getItem('users') || '{}');
 
-  if (users[username]) {
-    alert('Uporabniško ime že obstaja.');
-    return;
-  }
+    if (users[username]) {
+      alert('Uporabniško ime že obstaja.');
+      return;
+    }
 
-  users[username] = password;
-  localStorage.setItem('users', JSON.stringify(users));
-  alert(`Uporabnik ${username} registriran.`);
-  registerModal.style.display = 'none';
-  loginContainer.style.display = 'flex';
-};
-
-loginForm.onsubmit = (e) => {
-  e.preventDefault();
-  const username = e.target['login-username'].value.trim();
-  const password = e.target['login-password'].value.trim();
-
-  if (!username || !password) {
-    alert('Vnesi uporabniško ime in geslo.');
-    return;
-  }
-
-  const users = JSON.parse(localStorage.getItem('users') || '{}');
-
-  if (!users[username] || users[username] !== password) {
-    alert('Napačno uporabniško ime ali geslo.');
-    return;
-  }
-
-  alert(`Pozdravljen, ${username}!`);
-  loginContainer.style.display = 'none';
-  mainApp.style.display = 'block';
-};
-  
-logoutTab.onclick = () => {
-  if (confirm('Odjava?')) {
-    mainApp.style.display = 'none';
+    users[username] = password;
+    localStorage.setItem('users', JSON.stringify(users));
+    alert(`Uporabnik ${username} registriran.`);
+    registerModal.style.display = 'none';
     loginContainer.style.display = 'flex';
-    resetStats();
-    tracking = false;
-    if (watchId) { 
-      navigator.geolocation.clearWatch(watchId); 
-      watchId = null; 
+  };
+
+  loginForm.onsubmit = (e) => {
+    e.preventDefault();
+    const username = e.target['login-username'].value.trim();
+    const password = e.target['login-password'].value.trim();
+
+    if (!username || !password) {
+      alert('Vnesi uporabniško ime in geslo.');
+      return;
     }
-  }
-};
 
-const locationBtn = document.getElementById('current-location');
+    const users = JSON.parse(localStorage.getItem('users') || '{}');
 
-if (locationBtn) {
-  locationBtn.addEventListener('click', () => {
-    if (navigator.geolocation && window.map) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          map.setView([latitude, longitude], 17);
-        },
-        (error) => {
-          alert('Napaka pri pridobivanju lokacije.');
-        }
-      );
-    } else {
-      alert('Zemljevid ali geolokacija nista na voljo.');
+    if (!users[username] || users[username] !== password) {
+      alert('Napačno uporabniško ime ali geslo.');
+      return;
     }
-  });
-}
 
+    alert(`Pozdravljen, ${username}!`);
+    loginContainer.style.display = 'none';
+    mainApp.style.display = 'block';
+  };
+
+  logoutTab.onclick = () => {
+    if (confirm('Odjava?')) {
+      mainApp.style.display = 'none';
+      loginContainer.style.display = 'flex';
+      resetStats();
+      tracking = false;
+      if (watchId) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+      }
+    }
+  };
+
+  mainApp.style.display = 'none';
+  loginContainer.style.display = 'flex';
+})();
 </script>
 </body>
 </html>
