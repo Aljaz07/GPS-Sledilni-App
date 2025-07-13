@@ -739,6 +739,7 @@
 
 registerForm.onsubmit = (e) => {
   e.preventDefault();
+  console.log("Poskus registracije..."); // poskus registracije
   const username = e.target['register-username'].value.trim();
   const password = e.target['register-password'].value.trim();
 
@@ -816,11 +817,6 @@ if (locationBtn) {
   });
 }
 
-(() => {
-  mainApp.style.display = 'none';
-  loginContainer.style.display = 'flex';
-})();
-  
 </script>
 </body>
 </html>
